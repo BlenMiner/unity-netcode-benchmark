@@ -1,4 +1,3 @@
-using StinkySteak.NetcodeBenchmark.Util;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +23,7 @@ namespace StinkySteak.NetcodeBenchmark
         [Header("Stress Test 3: Move Wander")]
         [SerializeField] protected StressTestEssential _test_3;
 
-        [Header("Stress Test 4: Self Networked Move Wander")]
+        [Header("Stress Test 4: Send RPCs")]
         [SerializeField] protected StressTestEssential _test_4;
 
         [System.Serializable]
@@ -35,20 +34,10 @@ namespace StinkySteak.NetcodeBenchmark
             public GameObject Prefab;
         }
 
-        protected HeadlessServerProperty _headlessServerProperty;
-
-        public struct HeadlessServerProperty
-        {
-            public SimulationTimer.SimulationTimer TimerActivateTest;
-            public StressTestEssential Test;
-        }
-
         private void Start()
         {
-            MonoStart();
             Initialize();
         }
-
 
         protected virtual void Initialize()
         {
@@ -63,68 +52,21 @@ namespace StinkySteak.NetcodeBenchmark
 
         protected virtual void StartClient() { }
         protected virtual void StartServer() { }
-        protected void StressTest_1() => StressTest(_test_1);
-        protected void StressTest_2() => StressTest(_test_2);
-        protected void StressTest_3() => StressTest(_test_3);
-        protected void StressTest_4() => StressTest(_test_4);
-
+        private void StressTest_1() => StressTest(_test_1);
+        private void StressTest_2() => StressTest(_test_2);
+        private void StressTest_3() => StressTest(_test_3);
+        private void StressTest_4() => StressTest(_test_4);
         protected virtual void StressTest(StressTestEssential stressTest) { }
 
 
-        private void Update()
-        {
-            MonoUpdate();
-        }
-
         private void LateUpdate()
         {
-            MonoLateUpdate();
-
             if (!_timerUpdateLatencyText.IsExpiredOrNotRunning()) return;
 
             UpdateNetworkStats();
             _timerUpdateLatencyText = SimulationTimer.SimulationTimer.CreateFromSeconds(_updateLatencyTextInterval);
         }
 
-        protected virtual void MonoLateUpdate() { }
-        protected virtual void MonoStart() { }
-        protected virtual void MonoUpdate() { }
         protected virtual void UpdateNetworkStats() { }
-
-        protected void RefigureHeadlessServerProperty()
-        {
-            bool isTest1 = HeadlessUtils.HasArg(HeadlessArguments.SERVER_TEST_1);
-            bool isTest2 = HeadlessUtils.HasArg(HeadlessArguments.SERVER_TEST_2);
-            bool isTest3 = HeadlessUtils.HasArg(HeadlessArguments.SERVER_TEST_3);
-            bool isTest4 = HeadlessUtils.HasArg(HeadlessArguments.SERVER_TEST_4);
-
-            float delaySpawnTest = 1f;
-
-            _headlessServerProperty.TimerActivateTest = SimulationTimer.SimulationTimer.CreateFromSeconds(delaySpawnTest);
-
-            if (isTest1)
-            {
-                _headlessServerProperty.Test = _test_1;
-                return;
-            }
-
-            if (isTest2)
-            {
-                _headlessServerProperty.Test = _test_2;
-                return;
-            }
-
-            if (isTest3)
-            {
-                _headlessServerProperty.Test = _test_3;
-                return;
-            }
-
-            if (isTest4)
-            {
-                _headlessServerProperty.Test = _test_4;
-                return;
-            }
-        }
     }
 }

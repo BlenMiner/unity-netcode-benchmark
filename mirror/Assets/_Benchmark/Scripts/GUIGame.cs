@@ -39,6 +39,7 @@ namespace StinkySteak.MirrorBenchmark
             for (int i = 0; i < stressTest.SpawnCount; i++)
             {
                 GameObject go = Instantiate(stressTest.Prefab);
+                go.transform.position = Random.insideUnitSphere * 10;
                 NetworkServer.Spawn(go);
             }
         }
