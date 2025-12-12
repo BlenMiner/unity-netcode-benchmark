@@ -21,7 +21,10 @@ namespace Mirror
 
         void OnGUI()
         {
-            GUILayout.BeginArea(new Rect(10 + offsetX, 40 + offsetY, 300, 9999));
+            // If this width is changed, also change offsetX in GUIConsole::OnGUI
+            int width = 300;
+
+            GUILayout.BeginArea(new Rect(10 + offsetX, 40 + offsetY, width, 9999));
 
             if (!NetworkClient.isConnected && !NetworkServer.active)
                 StartButtons();
@@ -52,7 +55,7 @@ namespace Mirror
                 // cant be a server in webgl build
                 if (GUILayout.Button("Single Player"))
                 {
-                    NetworkServer.dontListen = true;
+                    NetworkServer.listen = false;
                     manager.StartHost();
                 }
 #else

@@ -3,11 +3,9 @@
 //
 //#if MIRROR <- commented out because MIRROR isn't defined on first import yet
 using System;
-using System.Linq;
 using System.Net;
-using UnityEngine;
 using Mirror;
-using Unity.Collections;
+using UnityEngine;
 using UnityEngine.Serialization;
 
 namespace kcp2k
@@ -67,8 +65,8 @@ namespace kcp2k
         const int MTU = Kcp.MTU_DEF;
 
         // server & client
-        KcpServer server; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
-        KcpClient client; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
+        protected KcpServer server; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
+        protected KcpClient client; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
 
         // copy MonoBehaviour.enabled for thread safe access
         volatile bool enabledCopy = true;
@@ -122,7 +120,7 @@ namespace kcp2k
             // it'll be used by the created thread immediately.
             base.Awake();
 
-            Debug.Log("ThreadedKcpTransport initialized!");
+            Log.Info("ThreadedKcpTransport initialized!");
         }
 
         protected virtual void OnValidate()
@@ -138,8 +136,14 @@ namespace kcp2k
         void OnDisable() => enabledCopy = true;
 
         // all except WebGL
+        // Do not change this back to using Application.platform
+        // because that doesn't work in the Editor!
         public override bool Available() =>
-            Application.platform != RuntimePlatform.WebGLPlayer;
+#if UNITY_WEBGL
+            false;
+#else
+            true;
+#endif
 
         protected override void ThreadedClientConnect(string address) => client.Connect(address, Port);
         protected override void ThreadedClientConnect(Uri uri)
@@ -300,7 +304,7 @@ namespace kcp2k
                 log += $"  ReceiveQueue: {GetTotalReceiveQueue()}\n";
                 log += $"  SendBuffer: {GetTotalSendBuffer()}\n";
                 log += $"  ReceiveBuffer: {GetTotalReceiveBuffer()}\n\n";
-                Debug.Log(log);
+                Log.Info(log);
             }
 
             if (ClientConnected())
@@ -312,12 +316,12 @@ namespace kcp2k
                 log += $"  ReceiveQueue: {client.peer.ReceiveQueueCount}\n";
                 log += $"  SendBuffer: {client.peer.SendBufferCount}\n";
                 log += $"  ReceiveBuffer: {client.peer.ReceiveBufferCount}\n\n";
-                Debug.Log(log);
+                Log.Info(log);
             }
             */
         }
 
-        public override string ToString() => "ThreadedKCP";
+        public override string ToString() => $"ThreadedKCP {port}";
     }
 }
 //#endif MIRROR <- commented out because MIRROR isn't defined on first import yet
