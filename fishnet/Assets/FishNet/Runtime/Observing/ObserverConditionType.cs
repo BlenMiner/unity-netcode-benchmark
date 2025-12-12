@@ -1,5 +1,4 @@
-﻿
-namespace FishNet.Observing
+﻿namespace FishNet.Observing
 {
     /// <summary>
     /// How a condition is handled.
@@ -7,7 +6,13 @@ namespace FishNet.Observing
     /// </summary>
     public enum ObserverConditionType : byte
     {
+        /// <summary>
+        /// Condition is checked only when changed.
+        /// </summary>
         Normal = 1,
-        Timed = 2,
+        /// <summary>
+        /// Condition requires checks at regular intervals. The intervals are handled internally.
+        /// </summary>
+        Timed = 2
     }
 }

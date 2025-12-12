@@ -1,82 +1,70 @@
-﻿using FishNet.Component.Prediction;
+﻿using FishNet.CodeGenerating;
 using FishNet.Serializing;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace FishNet.Component.Prediction
 {
+    [UseGlobalCustomSerializer]
+    [Preserve]
     public struct RigidbodyState
     {
-        public uint LocalTick;
         public Vector3 Position;
         public Quaternion Rotation;
+        [ExcludeSerialization]
+        public readonly AutoPackType RotationPacking;
         public bool IsKinematic;
         public Vector3 Velocity;
         public Vector3 AngularVelocity;
-
-        public RigidbodyState(Rigidbody rb, bool isKinematic, uint tick) : this(rb, tick)
-        {
-            Position = rb.transform.position;
-            Rotation = rb.transform.rotation;
-            IsKinematic = isKinematic;
-            Velocity = rb.velocity;
-            AngularVelocity = rb.angularVelocity;
-            LocalTick = tick;
-
-        }
-
-        public RigidbodyState(Rigidbody rb, uint tick)
+        
+        public RigidbodyState(Rigidbody rb, AutoPackType rotationPacking = AutoPackType.Packed)
         {
             Position = rb.transform.position;
             Rotation = rb.transform.rotation;
             IsKinematic = rb.isKinematic;
-            Velocity = rb.velocity;
+            Velocity = rb.linearVelocity;
             AngularVelocity = rb.angularVelocity;
-            LocalTick = tick;
+            RotationPacking = rotationPacking;
         }
     }
 
+    [UseGlobalCustomSerializer]
+    [Preserve]
     public struct Rigidbody2DState
     {
-        public uint LocalTick;
         public Vector3 Position;
         public Quaternion Rotation;
+        [ExcludeSerialization]
+        public readonly AutoPackType RotationPacking;
         public Vector2 Velocity;
         public float AngularVelocity;
         public bool Simulated;
         public bool IsKinematic;
-
-        public Rigidbody2DState(Rigidbody2D rb, bool simulated, uint tick)
+        
+        public Rigidbody2DState(Rigidbody2D rb, AutoPackType rotationPacking = AutoPackType.Packed)
         {
             Position = rb.transform.position;
             Rotation = rb.transform.rotation;
-            Velocity = rb.velocity;
-            AngularVelocity = rb.angularVelocity;
-            Simulated = simulated;
-            IsKinematic = rb.isKinematic;
-            LocalTick = tick;
-        }
-
-        public Rigidbody2DState(Rigidbody2D rb, uint tick)
-        {
-            Position = rb.transform.position;
-            Rotation = rb.transform.rotation;
-            Velocity = rb.velocity;
+            RotationPacking = rotationPacking;
+            Velocity = rb.linearVelocity;
             AngularVelocity = rb.angularVelocity;
             Simulated = rb.simulated;
             IsKinematic = rb.isKinematic;
-            LocalTick = tick;
         }
     }
 
+    [Preserve]
     public static class RigidbodyStateSerializers
     {
-
         public static void WriteRigidbodyState(this Writer writer, RigidbodyState value)
         {
-            writer.WriteTickUnpacked(value.LocalTick);
             writer.WriteVector3(value.Position);
-            writer.WriteQuaternion(value.Rotation);
+            
+            writer.WriteAutoPackType(value.RotationPacking);
+            writer.WriteQuaternion(value.Rotation, value.RotationPacking);
+            
             writer.WriteBoolean(value.IsKinematic);
+            
             if (!value.IsKinematic)
             {
                 writer.WriteVector3(value.Velocity);
@@ -86,14 +74,20 @@ namespace FishNet.Component.Prediction
 
         public static RigidbodyState ReadRigidbodyState(this Reader reader)
         {
-            RigidbodyState state = new RigidbodyState()
-            {
-                LocalTick = reader.ReadTickUnpacked(),
-                Position = reader.ReadVector3(),
-                Rotation = reader.ReadQuaternion(),
-                IsKinematic = reader.ReadBoolean()
-            };
+            Vector3 position = reader.ReadVector3();
 
+            AutoPackType rotationPacking = reader.ReadAutoPackType();
+            Quaternion rotation = reader.ReadQuaternion(rotationPacking);
+
+            bool isKinematic = reader.ReadBoolean();
+
+            RigidbodyState state = new()
+            {
+                Position = position,
+                Rotation = rotation,
+                IsKinematic = isKinematic,
+            };
+                
             if (!state.IsKinematic)
             {
                 state.Velocity = reader.ReadVector3();
@@ -103,12 +97,13 @@ namespace FishNet.Component.Prediction
             return state;
         }
 
-
         public static void WriteRigidbody2DState(this Writer writer, Rigidbody2DState value)
         {
-            writer.WriteTickUnpacked(value.LocalTick);
             writer.WriteVector3(value.Position);
-            writer.WriteQuaternion(value.Rotation);
+            
+            writer.WriteAutoPackType(value.RotationPacking);
+            writer.WriteQuaternion(value.Rotation, value.RotationPacking);
+            
             writer.WriteBoolean(value.Simulated);
             writer.WriteBoolean(value.IsKinematic);
 
@@ -121,13 +116,20 @@ namespace FishNet.Component.Prediction
 
         public static Rigidbody2DState ReadRigidbody2DState(this Reader reader)
         {
-            Rigidbody2DState state = new Rigidbody2DState()
+            Vector3 position = reader.ReadVector3();
+            
+            AutoPackType rotationPacking = reader.ReadAutoPackType();
+            Quaternion rotation = reader.ReadQuaternion(rotationPacking);
+            
+            bool simulated = reader.ReadBoolean();
+            bool isKinematic = reader.ReadBoolean();
+            
+            Rigidbody2DState state = new()
             {
-                LocalTick = reader.ReadTickUnpacked(),
-                Position = reader.ReadVector3(),
-                Rotation = reader.ReadQuaternion(),
-                Simulated = reader.ReadBoolean(),
-                IsKinematic = reader.ReadBoolean()
+                Position = position,
+                Rotation = rotation,
+                Simulated = simulated,
+                IsKinematic = isKinematic,
             };
 
             if (state.Simulated)
@@ -138,9 +140,60 @@ namespace FishNet.Component.Prediction
 
             return state;
         }
-
-
     }
 
+    [Preserve]
+    public static class RigidbodyStateExtensions
+    {
+        /// <summary>
+        /// Gets a RigidbodyState.
+        /// </summary>
+        public static RigidbodyState GetState(this Rigidbody rb, AutoPackType rotationPacking = AutoPackType.Packed)
+        {
+            return new(rb, rotationPacking);
+        }
 
+        /// <summary>
+        /// Sets a state to a rigidbody.
+        /// </summary>
+        public static void SetState(this Rigidbody rb, RigidbodyState state)
+        {
+            Transform t = rb.transform;
+            t.position = state.Position;
+            t.rotation = state.Rotation;
+            rb.isKinematic = state.IsKinematic;
+   
+            if (!state.IsKinematic)
+            {
+                rb.linearVelocity = state.Velocity;
+                rb.angularVelocity = state.AngularVelocity;
+            }
+        }
+
+
+        /// <summary>
+        /// Gets a Rigidbody2DState.
+        /// </summary>
+        public static Rigidbody2DState GetState(this Rigidbody2D rb, AutoPackType rotationPacking = AutoPackType.Packed)
+        {
+            return new(rb, rotationPacking);
+        }
+
+        /// <summary>
+        /// Sets a state to a rigidbody.
+        /// </summary>
+        public static void SetState(this Rigidbody2D rb, Rigidbody2DState state)
+        {
+            Transform t = rb.transform;
+            t.position = state.Position;
+            t.rotation = state.Rotation;
+            rb.isKinematic = state.IsKinematic;
+
+            if (!state.IsKinematic)
+            {
+                rb.linearVelocity = state.Velocity;
+                rb.angularVelocity = state.AngularVelocity;
+            }
+        }
+    }
 }

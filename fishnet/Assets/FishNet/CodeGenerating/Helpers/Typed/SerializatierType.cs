@@ -1,13 +1,12 @@
 ﻿namespace FishNet.CodeGenerating.Helping
 {
-
     internal enum SerializerType
     {
         Invalid,
         Enum,
         Array,
         List,
-        ListCache,
+        HashSet,
         NetworkBehaviour,
         ClassOrStruct,
         Nullable,
@@ -16,5 +15,4 @@
         ByReference,
         MultiDimensionalArray
     }
-
 }

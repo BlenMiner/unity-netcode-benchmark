@@ -1,15 +1,17 @@
-﻿using FishNet.Broadcast;
+﻿#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#define DEVELOPMENT
+#endif
+using FishNet.Broadcast;
 using FishNet.Broadcast.Helping;
-using FishNet.Managing.Logging;
 using FishNet.Managing.Utility;
 using FishNet.Serializing;
 using FishNet.Serializing.Helping;
 using FishNet.Transporting;
-using FishNet.Utility.Extension;
-using GameKit.Utilities;
+using GameKit.Dependencies.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using FishNet.Managing.Transporting;
 using UnityEngine;
 
 namespace FishNet.Managing.Client
@@ -18,146 +20,91 @@ namespace FishNet.Managing.Client
     {
         #region Private.
         /// <summary>
-        /// Delegate to read received broadcasts.
+        /// Handler for registered broadcasts.
         /// </summary>
-        /// <param name="reader"></param>
-        private delegate void ServerBroadcastDelegate(PooledReader reader);
-        /// <summary>
-        /// Delegates for each key.
-        /// </summary>
-        private readonly Dictionary<ushort, HashSet<ServerBroadcastDelegate>> _broadcastHandlers = new Dictionary<ushort, HashSet<ServerBroadcastDelegate>>();
-        /// <summary>
-        /// Delegate targets for each key.
-        /// </summary>
-        private Dictionary<ushort, HashSet<(int, ServerBroadcastDelegate)>> _handlerTargets = new Dictionary<ushort, HashSet<(int, ServerBroadcastDelegate)>>();
+        private readonly Dictionary<ushort, BroadcastHandlerBase> _broadcastHandlers = new();
         #endregion
 
         /// <summary>
         /// Registers a method to call when a Broadcast arrives.
         /// </summary>
-        /// <typeparam name="T">Type of broadcast being registered.</typeparam>
-        /// <param name="handler">Method to call.</param>
-        public void RegisterBroadcast<T>(Action<T> handler) where T : struct, IBroadcast
+        /// <typeparam name = "T">Type of broadcast being registered.</typeparam>
+        /// <param name = "handler">Method to call.</param>
+        public void RegisterBroadcast<T>(Action<T, Channel> handler) where T : struct, IBroadcast
         {
-            ushort key = typeof(T).FullName.GetStableHashU16();
-            /* Create delegate and add for
-             * handler method. */
-            HashSet<ServerBroadcastDelegate> handlers;
-            if (!_broadcastHandlers.TryGetValueIL2CPP(key, out handlers))
+            if (handler == null)
             {
-                handlers = new HashSet<ServerBroadcastDelegate>();
-                _broadcastHandlers.Add(key, handlers);
-            }
-            ServerBroadcastDelegate del = CreateBroadcastDelegate(handler);
-            handlers.Add(del);
-
-            /* Add hashcode of target for handler.
-             * This is so we can unregister the target later. */
-            int handlerHashCode = handler.GetHashCode();
-            HashSet<(int, ServerBroadcastDelegate)> targetHashCodes;
-            if (!_handlerTargets.TryGetValueIL2CPP(key, out targetHashCodes))
-            {
-                targetHashCodes = new HashSet<(int, ServerBroadcastDelegate)>();
-                _handlerTargets.Add(key, targetHashCodes);
+                NetworkManager.LogError($"Broadcast cannot be registered because handler is null. This may occur when trying to register to objects which require initialization, such as events.");
+                return;
             }
 
-            targetHashCodes.Add((handlerHashCode, del));
+            ushort key = BroadcastExtensions.GetKey<T>();
+
+#if DEVELOPMENT && !UNITY_SERVER
+            NetworkManager.SetBroadcastName<T>(key);
+#endif
+
+            // Create new IBroadcastHandler if needed.
+            BroadcastHandlerBase bhs;
+            if (!_broadcastHandlers.TryGetValueIL2CPP(key, out bhs))
+            {
+                bhs = new ServerBroadcastHandler<T>();
+                _broadcastHandlers.Add(key, bhs);
+            }
+            // Register handler to IBroadcastHandler.
+            bhs.RegisterHandler(handler);
         }
 
         /// <summary>
         /// Unregisters a method call from a Broadcast type.
         /// </summary>
-        /// <typeparam name="T">Type of broadcast being unregistered.</typeparam>
-        /// <param name="handler">Method to unregister.</param>
-        public void UnregisterBroadcast<T>(Action<T> handler) where T : struct, IBroadcast
+        /// <typeparam name = "T">Type of broadcast being unregistered.</typeparam>
+        /// <param name = "handler">Method to unregister.</param>
+        public void UnregisterBroadcast<T>(Action<T, Channel> handler) where T : struct, IBroadcast
         {
-            ushort key = BroadcastHelper.GetKey<T>();
-
-            /* If key is found for T then look for
-             * the appropriate handler to remove. */
-            if (_broadcastHandlers.TryGetValueIL2CPP(key, out HashSet<ServerBroadcastDelegate> handlers))
-            {
-                HashSet<(int, ServerBroadcastDelegate)> targetHashCodes;
-                if (_handlerTargets.TryGetValueIL2CPP(key, out targetHashCodes))
-                {
-                    int handlerHashCode = handler.GetHashCode();
-                    ServerBroadcastDelegate result = null;
-                    foreach ((int targetHashCode, ServerBroadcastDelegate del) in targetHashCodes)
-                    {
-                        if (targetHashCode == handlerHashCode)
-                        {
-                            result = del;
-                            targetHashCodes.Remove((targetHashCode, del));
-                            break;
-                        }
-                    }
-                    //If no more in targetHashCodes then remove from handlerTarget.
-                    if (targetHashCodes.Count == 0)
-                        _handlerTargets.Remove(key);
-
-                    if (result != null)
-                        handlers.Remove(result);
-                }
-
-                //If no more in handlers then remove broadcastHandlers.
-                if (handlers.Count == 0)
-                    _broadcastHandlers.Remove(key);
-            }
-        }
-
-        /// <summary>
-        /// Creates a ServerBroadcastDelegate.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="handler"></param>
-        /// <param name="requireAuthentication"></param>
-        /// <returns></returns>
-        private ServerBroadcastDelegate CreateBroadcastDelegate<T>(Action<T> handler)
-        {
-            void LogicContainer(PooledReader reader)
-            {
-                T broadcast = reader.Read<T>();
-                handler?.Invoke(broadcast);
-            }
-            return LogicContainer;
+            ushort key = BroadcastExtensions.GetKey<T>();
+            if (_broadcastHandlers.TryGetValueIL2CPP(key, out BroadcastHandlerBase bhs))
+                bhs.UnregisterHandler(handler);
         }
 
         /// <summary>
         /// Parses a received broadcast.
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ParseBroadcast(PooledReader reader, Channel channel)
         {
+            int readerPositionAfterDebug = reader.Position;
+
             ushort key = reader.ReadUInt16();
             int dataLength = Packets.GetPacketLength((ushort)PacketId.Broadcast, reader, channel);
+
             // try to invoke the handler for that message
-            if (_broadcastHandlers.TryGetValueIL2CPP(key, out HashSet<ServerBroadcastDelegate> handlers))
+            if (_broadcastHandlers.TryGetValueIL2CPP(key, out BroadcastHandlerBase bhs))
             {
-                int readerStartPosition = reader.Position;
-                /* //muchlater resetting the position could be better by instead reading once and passing in
-                 * the object to invoke with. */
-                foreach (ServerBroadcastDelegate handler in handlers)
-                {
-                    reader.Position = readerStartPosition;
-                    handler.Invoke(reader);
-                }
+                bhs.InvokeHandlers(reader, channel);
             }
             else
             {
                 reader.Skip(dataLength);
             }
-        }
 
+#if DEVELOPMENT && !UNITY_SERVER
+            if (_networkTrafficStatistics != null)
+            {
+                string broadcastName = NetworkManager.GetBroadcastName(key);
+                _networkTrafficStatistics.AddInboundPacketIdData(PacketId.Broadcast, broadcastName, reader.Position - readerPositionAfterDebug + TransportManager.PACKETID_LENGTH, gameObject: null, asServer: false);
+            }
+#endif
+        }
 
         /// <summary>
         /// Sends a Broadcast to the server.
         /// </summary>
-        /// <typeparam name="T">Type of broadcast to send.</typeparam>
-        /// <param name="message">Broadcast data being sent; for example: an instance of your broadcast type.</param>
-        /// <param name="channel">Channel to send on.</param>
+        /// <typeparam name = "T">Type of broadcast to send.</typeparam>
+        /// <param name = "message">Broadcast data being sent; for example: an instance of your broadcast type.</param>
+        /// <param name = "channel">Channel to send on.</param>
         public void Broadcast<T>(T message, Channel channel = Channel.Reliable) where T : struct, IBroadcast
         {
-            //Check local connection state.
+            // Check local connection state.
             if (!Started)
             {
                 NetworkManager.LogWarning($"Cannot send broadcast to server because client is not active.");
@@ -165,14 +112,22 @@ namespace FishNet.Managing.Client
             }
 
             PooledWriter writer = WriterPool.Retrieve();
-            Broadcasts.WriteBroadcast<T>(writer, message, channel);
+            BroadcastsSerializers.WriteBroadcast(NetworkManager, writer, message, ref channel);
             ArraySegment<byte> segment = writer.GetArraySegment();
+
+#if DEVELOPMENT && !UNITY_SERVER
+            if (_networkTrafficStatistics != null)
+            {
+                ushort key = BroadcastExtensions.GetKey<T>();
+                string broadcastName = NetworkManager.GetBroadcastName(key);
+
+                /* Do not include packetId length -- its written in the 'WriteBroadcast' method. */
+                _networkTrafficStatistics.AddOutboundPacketIdData(PacketId.Broadcast, broadcastName, writer.Length, gameObject: null, asServer: false);
+            }
+#endif
 
             NetworkManager.TransportManager.SendToServer((byte)channel, segment);
             writer.Store();
         }
-
     }
-
-
 }

@@ -11,10 +11,8 @@ using UnityEngine;
 #endif
 using SR = System.Reflection;
 
-
 namespace FishNet.CodeGenerating
 {
-
     internal class CodegenSession
     {
         /// <summary>
@@ -28,9 +26,7 @@ namespace FishNet.CodeGenerating
         /// <summary>
         /// SyncVars that are being accessed from an assembly other than the currently being processed one.
         /// </summary>
-        internal List<FieldDefinition> DifferentAssemblySyncVars = new List<FieldDefinition>();
-
-
+        internal List<FieldDefinition> DifferentAssemblySyncVars = new();
         /// <summary>
         /// CodegenBase classes for processing a module.
         /// </summary>
@@ -38,52 +34,42 @@ namespace FishNet.CodeGenerating
         /// <summary>
         /// Quick lookup of base classes.
         /// </summary>
-        private Dictionary<string, CodegenBase> _basesCache = new Dictionary<string, CodegenBase>();
+        private Dictionary<string, CodegenBase> _basesCache = new();
 
         /// <summary>
         /// Returns class of type if found within CodegenBase classes.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <typeparam name = "T"></typeparam>
         /// <returns></returns>
         internal T GetClass<T>() where T : CodegenBase
         {
             string tName = typeof(T).Name;
             return (T)_basesCache[tName];
         }
+
         /// <summary>
         /// Resets all helpers while importing any information needed by them.
         /// </summary>
-        /// <param name="module"></param>
+        /// <param name = "module"></param>
         /// <returns></returns>
         internal bool Initialize(ModuleDefinition module)
         {
             Module = module;
-            Diagnostics = new List<DiagnosticMessage>();
+            Diagnostics = new();
 
-            _bases = new List<CodegenBase>()
-                {
-                    new ReaderImports(), new ReaderProcessor()
-                    ,new WriterImports(), new WriterProcessor()
-                    , new PhysicsHelper(), new TimeManagerHelper(), new AttributeHelper(), new GeneralHelper()
-                    , new ObjectHelper(), new NetworkBehaviourHelper()
-                    , new CreatedSyncVarGenerator(), new TransportHelper()
-                    , new NetworkConnectionImports(), new PredictedObjectHelper(), new GeneratorHelper()
-                    , new CustomSerializerProcessor()
-                    , new NetworkBehaviourProcessor()
-                    , new QolAttributeProcessor()
-                    , new RpcProcessor()
-                    , new NetworkBehaviourSyncProcessor()
-                    , new PredictionProcessor()
-                };
+            _bases = new()
+            {
+                new ReaderImports(), new ReaderProcessor(), new WriterImports(), new WriterProcessor(), new PhysicsHelper(), new TimeManagerHelper(), new AttributeHelper(), new GeneralHelper(), new ObjectHelper(), new NetworkBehaviourHelper(), new TransportHelper(), new NetworkConnectionImports(), new PredictedObjectHelper(), new GeneratorHelper(), new CustomSerializerProcessor(), new NetworkBehaviourProcessor(), new QolAttributeProcessor(), new RpcProcessor(), new SyncTypeProcessor(), new PredictionProcessor()
+            };
 
-            //Add all to dictionary first, then import.
+            // Add all to dictionary first, then import.
             foreach (CodegenBase item in _bases)
             {
                 string tName = item.GetType().Name;
                 _basesCache.Add(tName, item);
             }
 
-            //Initialize.
+            // Initialize.
             foreach (CodegenBase item in _bases)
             {
                 item.Initialize(this);
@@ -94,38 +80,33 @@ namespace FishNet.CodeGenerating
             return true;
         }
 
-
-
-
         #region Logging.
+        public string MethodDefinitionTraceText(MethodDefinition methodDef) => methodDef == null ? " Null MethodDef" : $" TypeDef [{methodDef.DeclaringType.FullName}] Method [{methodDef.Name}]";
+        public string TypeDefinitionTraceText(TypeDefinition typeDef) => typeDef == null ? " Null TypeDef" : $" TypeDef [{typeDef.FullName}]";
+        public string TypeReferenceTraceText(TypeReference typeRef) => typeRef == null ? " Null TypeRef" : $" TypeRef [{typeRef.FullName}]";
+        public string FieldDefinitionTraceText(FieldDefinition fieldDef) => fieldDef == null ? " Null FieldRef" : $" TypeRef [{fieldDef.DeclaringType.FullName}] FieldDef [{fieldDef.Name}]";
+        public string PropertyDefinitionTraceText(PropertyDefinition propertyDef) => propertyDef == null ? " Null PropertydRef" : $" TypeRef [{propertyDef.DeclaringType.FullName}] PropertyDef [{propertyDef.Name}]";
+        
         /// <summary>
         /// Logs a warning.
         /// </summary>
-        /// <param name="msg"></param>
+        /// <param name = "msg"></param>
         internal void LogWarning(string msg)
         {
-#if UNITY_2020_1_OR_NEWER
             Diagnostics.AddWarning(msg);
-#else
-            Debug.LogWarning(msg);
-#endif
         }
+
         /// <summary>
         /// Logs an error.
         /// </summary>
-        /// <param name="msg"></param>
+        /// <param name = "msg"></param>
         internal void LogError(string msg)
         {
-#if UNITY_2020_1_OR_NEWER
             Diagnostics.AddError(msg);
-#else
-            Debug.LogError(msg);
-#endif
         }
         #endregion
 
         #region ImportReference.
-
         public MethodReference ImportReference(SR.MethodBase method)
         {
             return Module.ImportReference(method);
@@ -155,6 +136,7 @@ namespace FishNet.CodeGenerating
         {
             return Module.ImportReference(field, context);
         }
+
         public MethodReference ImportReference(MethodReference method)
         {
             return Module.ImportReference(method);
@@ -164,17 +146,16 @@ namespace FishNet.CodeGenerating
         {
             return Module.ImportReference(method, context);
         }
+
         public TypeReference ImportReference(System.Type type)
         {
             return ImportReference(type, null);
         }
 
-
         public TypeReference ImportReference(System.Type type, IGenericParameterProvider context)
         {
             return Module.ImportReference(type, context);
         }
-
 
         public FieldReference ImportReference(SR.FieldInfo field)
         {
@@ -185,10 +166,6 @@ namespace FishNet.CodeGenerating
         {
             return Module.ImportReference(field, context);
         }
-
         #endregion
-
     }
-
-
 }

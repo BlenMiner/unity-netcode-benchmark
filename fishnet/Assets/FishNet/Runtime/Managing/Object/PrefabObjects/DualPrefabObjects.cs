@@ -6,27 +6,26 @@ using UnityEngine;
 
 namespace FishNet.Managing.Object
 {
-
-    //document
+    // document
     [APIExclude]
     [CreateAssetMenu(fileName = "New DualPrefabObjects", menuName = "FishNet/Spawnable Prefabs/Dual Prefab Objects")]
     public class DualPrefabObjects : PrefabObjects
     {
         /// <summary>
-        /// 
         /// </summary>
         [Tooltip("Prefabs which may be spawned.")]
         [SerializeField]
-        private List<DualPrefab> _prefabs = new List<DualPrefab>();
+        private List<DualPrefab> _prefabs = new();
         /// <summary>
         /// Prefabs which may be spawned.
-        /// </summary>  //Remove on 2024/01/01 Convert to IReadOnlyList.
-        public IReadOnlyCollection<DualPrefab> Prefabs => _prefabs;
+        /// </summary>
+        public IReadOnlyList<DualPrefab> Prefabs => _prefabs;
 
         public override void Clear()
         {
             _prefabs.Clear();
         }
+
         public override int GetObjectCount()
         {
             return _prefabs.Count;
@@ -36,17 +35,17 @@ namespace FishNet.Managing.Object
         {
             if (id < 0 || id >= _prefabs.Count)
             {
-                NetworkManager.StaticLogError($"PrefabId {id} is out of range.");
+                NetworkManagerExtensions.LogError($"PrefabId {id} is out of range.");
                 return null;
             }
             else
             {
                 DualPrefab dp = _prefabs[id];
-                NetworkObject nob = (asServer) ? dp.Server : dp.Client;
+                NetworkObject nob = asServer ? dp.Server : dp.Client;
                 if (nob == null)
                 {
-                    string lookupSide = (asServer) ? "server" : "client";
-                    NetworkManager.StaticLogError($"Prefab for {lookupSide} on id {id} is null ");
+                    string lookupSide = asServer ? "server" : "client";
+                    NetworkManagerExtensions.LogError($"Prefab for {lookupSide} on id {id} is null ");
                 }
 
                 return nob;
@@ -63,22 +62,19 @@ namespace FishNet.Managing.Object
                     i--;
                 }
             }
-
-            if (Application.isPlaying)
-                InitializePrefabRange(0);
         }
 
-        public override void AddObject(DualPrefab dualPrefab, bool checkForDuplicates = false)
+        public override void AddObject(DualPrefab dualPrefab, bool checkForDuplicates = false, bool initializeAdded = true)
         {
-            AddObjects(new DualPrefab[] { dualPrefab }, checkForDuplicates);
+            AddObjects(new DualPrefab[] { dualPrefab }, checkForDuplicates, initializeAdded);
         }
 
-        public override void AddObjects(List<DualPrefab> dualPrefabs, bool checkForDuplicates = false)
+        public override void AddObjects(List<DualPrefab> dualPrefabs, bool checkForDuplicates = false, bool initializeAdded = true)
         {
-            AddObjects(dualPrefabs.ToArray(), checkForDuplicates);
+            AddObjects(dualPrefabs.ToArray(), checkForDuplicates, initializeAdded);
         }
 
-        public override void AddObjects(DualPrefab[] dualPrefabs, bool checkForDuplicates = false)
+        public override void AddObjects(DualPrefab[] dualPrefabs, bool checkForDuplicates = false, bool initializeAdded = true)
         {
             if (!checkForDuplicates)
             {
@@ -90,7 +86,7 @@ namespace FishNet.Managing.Object
                     AddUniqueNetworkObjects(dp);
             }
 
-            if (Application.isPlaying)
+            if (initializeAdded && Application.isPlaying)
                 InitializePrefabRange(0);
         }
 
@@ -105,7 +101,6 @@ namespace FishNet.Managing.Object
             _prefabs.Add(dp);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void InitializePrefabRange(int startIndex)
         {
             for (int i = startIndex; i < _prefabs.Count; i++)
@@ -115,21 +110,20 @@ namespace FishNet.Managing.Object
             }
         }
 
-
         #region Unused.
-        public override void AddObject(NetworkObject networkObject, bool checkForDuplicates = false)
+        public override void AddObject(NetworkObject networkObject, bool checkForDuplicates = false, bool initializeAdded = true)
         {
-            NetworkManager.StaticLogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
+            NetworkManagerExtensions.LogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
         }
 
-        public override void AddObjects(List<NetworkObject> networkObjects, bool checkForDuplicates = false)
+        public override void AddObjects(List<NetworkObject> networkObjects, bool checkForDuplicates = false, bool initializeAdded = true)
         {
-            NetworkManager.StaticLogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
+            NetworkManagerExtensions.LogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
         }
 
-        public override void AddObjects(NetworkObject[] networkObjects, bool checkForDuplicates = false)
+        public override void AddObjects(NetworkObject[] networkObjects, bool checkForDuplicates = false, bool initializeAdded = true)
         {
-            NetworkManager.StaticLogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
+            NetworkManagerExtensions.LogError($"Single prefabs are not supported with DualPrefabObjects. Make a SinglePrefabObjects asset instead.");
         }
         #endregion
     }

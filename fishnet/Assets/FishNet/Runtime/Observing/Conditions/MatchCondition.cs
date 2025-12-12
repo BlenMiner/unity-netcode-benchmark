@@ -4,10 +4,7 @@ using FishNet.Managing.Logging;
 using FishNet.Managing.Server;
 using FishNet.Object;
 using FishNet.Observing;
-using FishNet.Utility.Extension;
-using FishNet.Utility.Performance;
-using GameKit.Utilities;
-using System;
+using GameKit.Dependencies.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -27,33 +24,25 @@ namespace FishNet.Component.Observing
         /// </summary>
         public class ConditionCollections
         {
-            public Dictionary<int, HashSet<NetworkConnection>> MatchConnections = new Dictionary<int, HashSet<NetworkConnection>>();
-            public Dictionary<NetworkConnection, HashSet<int>> ConnectionMatches = new Dictionary<NetworkConnection, HashSet<int>>();
-            public Dictionary<int, HashSet<NetworkObject>> MatchObjects = new Dictionary<int, HashSet<NetworkObject>>();
-            public Dictionary<NetworkObject, HashSet<int>> ObjectMatches = new Dictionary<NetworkObject, HashSet<int>>();
+            public Dictionary<int, HashSet<NetworkConnection>> MatchConnections = new();
+            public Dictionary<NetworkConnection, HashSet<int>> ConnectionMatches = new();
+            public Dictionary<int, HashSet<NetworkObject>> MatchObjects = new();
+            public Dictionary<NetworkObject, HashSet<int>> ObjectMatches = new();
         }
         #endregion
 
         #region Private.
-        [Obsolete("Use GetMatchConnections(NetworkManager).")] //Remove on 2023/06/01
-        public static Dictionary<int, HashSet<NetworkConnection>> MatchConnections => GetMatchConnections();
-        [Obsolete("Use GetConnectionMatches(NetworkManager).")] //Remove on 2024/01/01.
-        public static Dictionary<NetworkConnection, HashSet<int>> ConnectionMatch => GetConnectionMatches();
-        [Obsolete("Use GetMatchObjects(NetworkManager).")] //Remove on 2024/01/01.
-        public static Dictionary<int, HashSet<NetworkObject>> MatchObject => GetMatchObjects();
-        [Obsolete("Use GetObjectMatches(NetworkManager).")] //Remove on 2024/01/01.
-        public static Dictionary<NetworkObject, HashSet<int>> ObjectMatch => GetObjectMatches();
         /// <summary>
         /// Collections for each NetworkManager instance.
         /// </summary>
-        private static Dictionary<NetworkManager, ConditionCollections> _collections = new Dictionary<NetworkManager, ConditionCollections>();
+        private static Dictionary<NetworkManager, ConditionCollections> _collections = new();
         #endregion
 
         #region Collections.
         /// <summary>
         /// Stores collections for a manager.
         /// </summary>
-        /// <param name="manager"></param>
+        /// <param name = "manager"></param>
         internal static void StoreCollections(NetworkManager manager)
         {
             ConditionCollections cc;
@@ -71,6 +60,7 @@ namespace FishNet.Component.Observing
 
             _collections.Remove(manager);
         }
+
         /// <summary>
         /// Gets condition collections for a NetowrkManager.
         /// </summary>
@@ -82,7 +72,7 @@ namespace FishNet.Component.Observing
             ConditionCollections cc;
             if (!_collections.TryGetValue(manager, out cc))
             {
-                cc = new ConditionCollections();
+                cc = new();
                 _collections[manager] = cc;
             }
 
@@ -92,37 +82,40 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Returns matches and connections in each match.
         /// </summary>
-        /// <param name="manager">NetworkManager to use.</param>
+        /// <param name = "manager">NetworkManager to use.</param>
         /// <returns></returns>
         public static Dictionary<int, HashSet<NetworkConnection>> GetMatchConnections(NetworkManager manager = null)
         {
             ConditionCollections cc = GetCollections(manager);
             return cc.MatchConnections;
         }
+
         /// <summary>
         /// Returns connections and the matches they are in.
         /// </summary>
-        /// <param name="manager">NetworkManager to use.</param>
+        /// <param name = "manager">NetworkManager to use.</param>
         /// <returns></returns>
         public static Dictionary<NetworkConnection, HashSet<int>> GetConnectionMatches(NetworkManager manager = null)
         {
             ConditionCollections cc = GetCollections(manager);
             return cc.ConnectionMatches;
         }
+
         /// <summary>
         /// Returns matches and objects within each match.
         /// </summary>
-        /// <param name="manager">NetworkManager to use.</param>
+        /// <param name = "manager">NetworkManager to use.</param>
         /// <returns></returns>
         public static Dictionary<int, HashSet<NetworkObject>> GetMatchObjects(NetworkManager manager = null)
         {
             ConditionCollections cc = GetCollections(manager);
             return cc.MatchObjects;
         }
+
         /// <summary>
         /// Returns objects and the matches they are in.
         /// </summary>
-        /// <param name="manager">NetworkManager to use.</param>
+        /// <param name = "manager">NetworkManager to use.</param>
         /// <returns></returns>
         public static Dictionary<NetworkObject, HashSet<int>> GetObjectMatches(NetworkManager manager = null)
         {
@@ -130,8 +123,6 @@ namespace FishNet.Component.Observing
             return cc.ObjectMatches;
         }
         #endregion
-
-        public void ConditionConstructor() { }
 
         #region Add to match NetworkConnection.
         /// <summary>
@@ -162,14 +153,13 @@ namespace FishNet.Component.Observing
             return r;
         }
 
-
         /// <summary>
         /// Adds a connection to a match.
         /// </summary>
-        /// <param name="match">Match to add conn to.</param>
-        /// <param name="conn">Connection to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conn to.</param>
+        /// <param name = "conn">Connection to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, NetworkConnection conn, NetworkManager manager = null, bool replaceMatch = false)
         {
             AddToMatch(match, conn, manager, replaceMatch, true);
@@ -195,21 +185,22 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Adds connections to a match.
         /// </summary>
-        /// <param name="match">Match to add conns to.</param>
-        /// <param name="conns">Connections to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conns to.</param>
+        /// <param name = "conns">Connections to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, NetworkConnection[] conns, NetworkManager manager = null, bool replaceMatch = false)
         {
             AddToMatch(match, conns.ToList(), manager, replaceMatch);
         }
+
         /// <summary>
         /// Adds connections to a match.
         /// </summary>
-        /// <param name="match">Match to add conns to.</param>
-        /// <param name="conns">Connections to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conns to.</param>
+        /// <param name = "conns">Connections to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, List<NetworkConnection> conns, NetworkManager manager = null, bool replaceMatch = false)
         {
             bool added = false;
@@ -255,38 +246,41 @@ namespace FishNet.Component.Observing
 
             return added;
         }
+
         /// <summary>
         /// Adds an object to a match.
         /// </summary>
-        /// <param name="match">Match to add conn to.</param>
-        /// <param name="nob">Connection to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conn to.</param>
+        /// <param name = "nob">Connection to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, NetworkObject nob, NetworkManager manager = null, bool replaceMatch = false)
         {
             AddToMatch(match, nob, manager, replaceMatch, true);
         }
+
         /// <summary>
         /// Adds objects to a match.
         /// </summary>
-        /// <param name="match">Match to add conns to.</param>
-        /// <param name="nobs">Connections to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conns to.</param>
+        /// <param name = "nobs">Connections to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, NetworkObject[] nobs, NetworkManager manager = null, bool replaceMatch = false)
         {
             AddToMatch(match, nobs.ToList(), manager, replaceMatch);
         }
+
         /// <summary>
         /// Adds objects to a match.
         /// </summary>
-        /// <param name="match">Match to add conns to.</param>
-        /// <param name="nobs">Connections to add to match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        /// <param name="replaceMatch">True to replace other matches with the new match.</param>
+        /// <param name = "match">Match to add conns to.</param>
+        /// <param name = "nobs">Connections to add to match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "replaceMatch">True to replace other matches with the new match.</param>
         public static void AddToMatch(int match, List<NetworkObject> nobs, NetworkManager manager = null, bool replaceMatch = false)
         {
-            //Remove from current matches.
+            // Remove from current matches.
             if (replaceMatch)
             {
                 foreach (NetworkObject n in nobs)
@@ -294,7 +288,7 @@ namespace FishNet.Component.Observing
             }
 
             bool added = false;
-            //Add to matches.
+            // Add to matches.
             foreach (NetworkObject n in nobs)
                 added |= AddToMatch(match, n, manager, replaceMatch, false);
 
@@ -312,7 +306,7 @@ namespace FishNet.Component.Observing
             bool isEmpty = true;
             if (value != null)
             {
-                isEmpty = (value.Count == 0);
+                isEmpty = value.Count == 0;
                 if (isEmpty)
                     CollectionCaches<NetworkObject>.Store(value);
             }
@@ -320,6 +314,7 @@ namespace FishNet.Component.Observing
             if (isEmpty)
                 dict.Remove(key);
         }
+
         /// <summary>
         /// Removes a key if values are empty, and caches values.
         /// </summary>
@@ -338,7 +333,7 @@ namespace FishNet.Component.Observing
             bool isEmpty = true;
             if (value != null)
             {
-                isEmpty = (value.Count == 0);
+                isEmpty = value.Count == 0;
                 if (isEmpty)
                     CollectionCaches<int>.Store(value);
             }
@@ -346,6 +341,7 @@ namespace FishNet.Component.Observing
             if (isEmpty)
                 dict.Remove(key);
         }
+
         /// <summary>
         /// Removes a key if values are empty, and caches values.
         /// </summary>
@@ -364,7 +360,7 @@ namespace FishNet.Component.Observing
             bool isEmpty = true;
             if (value != null)
             {
-                isEmpty = (value.Count == 0);
+                isEmpty = value.Count == 0;
                 if (isEmpty)
                     CollectionCaches<NetworkConnection>.Store(value);
             }
@@ -372,6 +368,7 @@ namespace FishNet.Component.Observing
             if (isEmpty)
                 dict.Remove(key);
         }
+
         /// <summary>
         /// Removes a key if values are empty, and caches values.
         /// </summary>
@@ -390,7 +387,7 @@ namespace FishNet.Component.Observing
             bool isEmpty = true;
             if (value != null)
             {
-                isEmpty = (value.Count == 0);
+                isEmpty = value.Count == 0;
                 if (isEmpty)
                     CollectionCaches<int>.Store(value);
             }
@@ -398,6 +395,7 @@ namespace FishNet.Component.Observing
             if (isEmpty)
                 dict.Remove(key);
         }
+
         /// <summary>
         /// Removes a key and caches collections where needed.
         /// </summary>
@@ -413,22 +411,22 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Removes a connection from all matches without rebuilding observers.
         /// </summary>
-        /// <param name="conn">Connection to remove from matches.</param>
-        /// <param name="manager">NetworkManager connection belongs to. This is not currently used.</param>
+        /// <param name = "conn">Connection to remove from matches.</param>
+        /// <param name = "manager">NetworkManager connection belongs to. This is not currently used.</param>
         internal static bool RemoveFromMatchesWithoutRebuild(NetworkConnection conn, NetworkManager manager)
         {
             Dictionary<NetworkConnection, HashSet<int>> connectionMatches = GetConnectionMatches(manager);
             Dictionary<int, HashSet<NetworkConnection>> matchConnections = GetMatchConnections(manager);
 
             bool removed = false;
-            //If found to be in a match.
+            // If found to be in a match.
             if (connectionMatches.TryGetValueIL2CPP(conn, out HashSet<int> connectionMatchesValues))
             {
-                removed = (connectionMatchesValues.Count > 0);
+                removed = connectionMatchesValues.Count > 0;
                 foreach (int m in connectionMatchesValues)
                 {
                     HashSet<NetworkConnection> matchConnsValues;
-                    //If match is found.
+                    // If match is found.
                     if (matchConnections.TryGetValue(m, out matchConnsValues))
                     {
                         matchConnsValues.Remove(conn);
@@ -436,9 +434,9 @@ namespace FishNet.Component.Observing
                     }
                 }
 
-                //Clear matches connection is in.
+                // Clear matches connection is in.
                 connectionMatchesValues.Clear();
-                //Remove from connectionMatches.
+                // Remove from connectionMatches.
                 TryRemoveKey(connectionMatches, conn, connectionMatchesValues);
             }
 
@@ -448,14 +446,15 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Removes a connection from all matches.
         /// </summary>
-        /// <param name="conn">NetworkConnection to remove.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "conn">NetworkConnection to remove.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(NetworkConnection conn, NetworkManager manager)
         {
             bool removed = RemoveFromMatchesWithoutRebuild(conn, manager);
             if (removed)
                 GetServerObjects(manager).RebuildObservers();
         }
+
         /// <summary>
         /// Removes a connection from a match.
         /// </summary>
@@ -484,35 +483,35 @@ namespace FishNet.Component.Observing
 
             return removed;
         }
+
         /// <summary>
         /// Removes a connection from a match.
         /// </summary>
-        /// <param name="match">Match to remove conn from.</param>
-        /// <param name="conn">Connection to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conn from.</param>
+        /// <param name = "conn">Connection to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static bool RemoveFromMatch(int match, NetworkConnection conn, NetworkManager manager = null)
         {
             return RemoveFromMatch(match, conn, manager, true);
         }
+
         /// <summary>
         /// Removes connections from a match.
         /// </summary>
-        /// <param name="match">Match to remove conns from.</param>
-        /// <param name="conns">Connections to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conns from.</param>
+        /// <param name = "conns">Connections to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(int match, NetworkConnection[] conns, NetworkManager manager)
         {
             RemoveFromMatch(match, conns.ToList(), manager);
         }
+
         /// <summary>
         /// Removes connections from a match.
         /// </summary>
-        /// <param name="match">Match to remove conns from.</param>
-        /// <param name="conns">Connections to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conns from.</param>
+        /// <param name = "conns">Connections to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(int match, List<NetworkConnection> conns, NetworkManager manager)
         {
             bool removed = false;
@@ -528,8 +527,8 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Removes a network object from any match without rebuilding observers.
         /// </summary>
-        /// <param name="nob">NetworkObject to remove.</param>
-        /// <param name="manager">Manager which the network object belongs to. This value is not yet used.</param>
+        /// <param name = "nob">NetworkObject to remove.</param>
+        /// <param name = "manager">Manager which the network object belongs to. This value is not yet used.</param>
         internal static bool RemoveFromMatchWithoutRebuild(NetworkObject nob, NetworkManager manager)
         {
             Dictionary<NetworkObject, HashSet<int>> objectMatches = GetObjectMatches(manager);
@@ -537,13 +536,13 @@ namespace FishNet.Component.Observing
 
             HashSet<int> objectMatchesValues;
             bool removed = false;
-            //If found to be in a match.
+            // If found to be in a match.
             if (objectMatches.TryGetValueIL2CPP(nob, out objectMatchesValues))
             {
-                removed = (objectMatchesValues.Count > 0);
+                removed = objectMatchesValues.Count > 0;
                 foreach (int m in objectMatchesValues)
                 {
-                    //If match is found.
+                    // If match is found.
                     if (matchObjects.TryGetValue(m, out HashSet<NetworkObject> matchObjectsValues))
                     {
                         matchObjectsValues.Remove(nob);
@@ -551,18 +550,19 @@ namespace FishNet.Component.Observing
                     }
                 }
 
-                //Since object is being removed from all matches this can be cleared.
+                // Since object is being removed from all matches this can be cleared.
                 objectMatchesValues.Clear();
                 TryRemoveKey(objectMatches, nob, objectMatchesValues);
             }
 
             return removed;
         }
+
         /// <summary>
         /// Removes nob from all matches.
         /// </summary>
-        /// <param name="nob">NetworkObject to remove.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "nob">NetworkObject to remove.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static bool RemoveFromMatch(NetworkObject nob, NetworkManager manager = null)
         {
             bool removed = RemoveFromMatchWithoutRebuild(nob, manager);
@@ -571,20 +571,22 @@ namespace FishNet.Component.Observing
 
             return removed;
         }
+
         /// <summary>
         /// Removes a network object from all matches.
         /// </summary>
-        /// <param name="nobs">NetworkObjects to remove.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "nobs">NetworkObjects to remove.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(NetworkObject[] nobs, NetworkManager manager = null)
         {
             RemoveFromMatch(nobs.ToList(), manager);
         }
+
         /// <summary>
         /// Removes network objects from all matches.
         /// </summary>
-        /// <param name="nobs">NetworkObjects to remove.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
+        /// <param name = "nobs">NetworkObjects to remove.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(List<NetworkObject> nobs, NetworkManager manager = null)
         {
             bool removed = false;
@@ -594,13 +596,13 @@ namespace FishNet.Component.Observing
             if (removed)
                 GetServerObjects(manager).RebuildObservers(nobs);
         }
+
         /// <summary>
         /// Removes a network object from a match.
         /// </summary>
-        /// <param name="match">Match to remove conn from.</param>
-        /// <param name="nob">NetworkObject to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conn from.</param>
+        /// <param name = "nob">NetworkObject to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(int match, NetworkObject nob, NetworkManager manager = null)
         {
             Dictionary<int, HashSet<NetworkObject>> matchObjects = GetMatchObjects(manager);
@@ -627,13 +629,13 @@ namespace FishNet.Component.Observing
                 }
             }
         }
+
         /// <summary>
         /// Removes network objects from a match.
         /// </summary>
-        /// <param name="match">Match to remove conns from.</param>
-        /// <param name="nobs">NetworkObjects to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conns from.</param>
+        /// <param name = "nobs">NetworkObjects to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(int match, NetworkObject[] nobs, NetworkManager manager = null)
         {
             Dictionary<int, HashSet<NetworkObject>> matchObjects = GetMatchObjects(manager);
@@ -656,13 +658,13 @@ namespace FishNet.Component.Observing
                 }
             }
         }
+
         /// <summary>
         /// Removes network objects from a match.
         /// </summary>
-        /// <param name="match">Match to remove conns from.</param>
-        /// <param name="nobs">NetworkObjects to remove from match.</param>
-        /// <param name="manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "match">Match to remove conns from.</param>
+        /// <param name = "nobs">NetworkObjects to remove from match.</param>
+        /// <param name = "manager">NetworkManager to rebuild observers on. If null InstanceFinder.NetworkManager will be used.</param>
         public static void RemoveFromMatch(int match, List<NetworkObject> nobs, NetworkManager manager = null)
         {
             Dictionary<int, HashSet<NetworkObject>> matchObjects = GetMatchObjects(manager);
@@ -690,28 +692,21 @@ namespace FishNet.Component.Observing
         /// <summary>
         /// Returns if the object which this condition resides should be visible to connection.
         /// </summary>
-        /// <param name="connection">Connection which the condition is being checked for.</param>
-        /// <param name="currentlyAdded">True if the connection currently has visibility of this object.</param>
-        /// <param name="notProcessed">True if the condition was not processed. This can be used to skip processing for performance. While output as true this condition result assumes the previous ConditionMet value.</param>
+        /// <param name = "connection">Connection which the condition is being checked for.</param>
+        /// <param name = "currentlyAdded">True if the connection currently has visibility of this object.</param>
+        /// <param name = "notProcessed">True if the condition was not processed. This can be used to skip processing for performance. While output as true this condition result assumes the previous ConditionMet value.</param>
         public override bool ConditionMet(NetworkConnection connection, bool currentlyAdded, out bool notProcessed)
         {
-            //If here then checks are being processed.
+            // If here then checks are being processed.
             notProcessed = false;
-            NetworkConnection owner = base.NetworkObject.Owner;
+            NetworkConnection owner = NetworkObject.Owner;
             /* If object is owned then check if owner
-            * and connection share a match. */
+             * and connection share a match. */
             if (owner.IsValid)
             {
-                Dictionary<NetworkConnection, HashSet<int>> connectionMatches = GetConnectionMatches(base.NetworkObject.NetworkManager);
-                //Output owner matches.
+                Dictionary<NetworkConnection, HashSet<int>> connectionMatches = GetConnectionMatches(NetworkObject.NetworkManager);
+                // Output owner matches.
                 HashSet<int> ownerMatches;
-                //bool ownerMatchesFound = connectionMatches.TryGetValueIL2CPP(owner, out ownerMatches);
-                ////Connection isn't in a match.
-                //if (!connectionMatches.TryGetValueIL2CPP(connection, out HashSet<int> connMatches))
-                //{
-                //    //If owner is also not in a match then they can see each other.
-                //    return !ownerMatchesFound;
-                //}
                 /* This objects owner is not in a match so treat it like
                  * a networkobject without an owner. Objects not in matches
                  * are visible to everyone. */
@@ -723,12 +718,12 @@ namespace FishNet.Component.Observing
                  * the same matches. */
                 else
                 {
-                    //If conn is not in any matches then they cannot see this object, as it is.
+                    // If conn is not in any matches then they cannot see this object, as it is.
                     if (!connectionMatches.TryGetValue(connection, out HashSet<int> connMatches))
                     {
                         return false;
                     }
-                    //See if conn is in any of the same matches.
+                    // See if conn is in any of the same matches.
                     else
                     {
                         foreach (int m in connMatches)
@@ -738,7 +733,7 @@ namespace FishNet.Component.Observing
                         }
                     }
 
-                    //Fall through, not found.
+                    // Fall through, not found.
                     return false;
                 }
             }
@@ -746,12 +741,12 @@ namespace FishNet.Component.Observing
              * then compare that. */
             else
             {
-                Dictionary<NetworkObject, HashSet<int>> objectMatches = GetObjectMatches(base.NetworkObject.NetworkManager);
-                Dictionary<NetworkConnection, HashSet<int>> connectionMatches = GetConnectionMatches(base.NetworkObject.NetworkManager);
+                Dictionary<NetworkObject, HashSet<int>> objectMatches = GetObjectMatches(NetworkObject.NetworkManager);
+                Dictionary<NetworkConnection, HashSet<int>> connectionMatches = GetConnectionMatches(NetworkObject.NetworkManager);
 
-                //Object isn't in a match. Is visible with no owner.
+                // Object isn't in a match. Is visible with no owner.
                 HashSet<int> objectMatchesValues;
-                if (!objectMatches.TryGetValueIL2CPP(base.NetworkObject, out objectMatchesValues))
+                if (!objectMatches.TryGetValueIL2CPP(NetworkObject, out objectMatchesValues))
                     return true;
                 /* See if connection is in any of same matches as the object.
                  * If connection isn't in a match then it fails as at this point
@@ -759,27 +754,26 @@ namespace FishNet.Component.Observing
                 if (!connectionMatches.TryGetValueIL2CPP(connection, out HashSet<int> connectionMatchesValues))
                     return false;
 
-                //Compare for same matches.
+                // Compare for same matches.
                 foreach (int cM in connectionMatchesValues)
                 {
                     if (objectMatchesValues.Contains(cM))
                         return true;
                 }
 
-                //Fall through, not in any of the matches.
+                // Fall through, not in any of the matches.
                 return false;
             }
         }
 
-
         /// <summary>
         /// Returns which ServerObjects to rebuild observers on.
         /// </summary>
-        /// <param name="nm"></param>
+        /// <param name = "nm"></param>
         /// <returns></returns>
         private static ServerObjects GetServerObjects(NetworkManager manager)
         {
-            return (manager == null) ? InstanceFinder.ServerManager.Objects : manager.ServerManager.Objects;
+            return manager == null ? InstanceFinder.ServerManager.Objects : manager.ServerManager.Objects;
         }
 
         /// <summary>
@@ -787,16 +781,5 @@ namespace FishNet.Component.Observing
         /// </summary>
         /// <returns></returns>
         public override ObserverConditionType GetConditionType() => ObserverConditionType.Normal;
-
-        /// <summary>
-        /// Clones referenced ObserverCondition. This must be populated with your conditions settings.
-        /// </summary>
-        /// <returns></returns>
-        public override ObserverCondition Clone()
-        {
-            MatchCondition copy = ScriptableObject.CreateInstance<MatchCondition>();
-            copy.ConditionConstructor();
-            return copy;
-        }
     }
 }

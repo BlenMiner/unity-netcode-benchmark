@@ -1,15 +1,13 @@
-﻿using FishNet.Managing.Logging;
+﻿#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#define DEVELOPMENT
+#endif
 using FishNet.Managing.Object;
 using FishNet.Managing.Utility;
 using FishNet.Object;
-using FishNet.Object.Helping;
 using FishNet.Serializing;
 using FishNet.Transporting;
-using FishNet.Utility.Extension;
-using GameKit.Utilities;
+using GameKit.Dependencies.Utilities;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using UnityEngine;
 
 namespace FishNet.Managing.Client
 {
@@ -18,54 +16,70 @@ namespace FishNet.Managing.Client
     /// </summary>
     public partial class ClientObjects : ManagedObjects
     {
-
         #region Private.
         /// <summary>
         /// RPCLinks of currently spawned objects.
         /// </summary>
-        private Dictionary<ushort, RpcLink> _rpcLinks = new Dictionary<ushort, RpcLink>();
+        private Dictionary<ushort, RpcLink> _rpcLinks = new();
         #endregion
 
         /// <summary>
         /// Parses a received RPCLink.
         /// </summary>
-        /// <param name="reader"></param>
-        /// <param name="index"></param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <param name = "reader"></param>
+        /// <param name = "index"></param>
         internal void ParseRpcLink(PooledReader reader, ushort index, Channel channel)
         {
-            int dataLength = Packets.GetPacketLength(ushort.MaxValue, reader, channel);
+#if DEVELOPMENT
+            NetworkBehaviour.ReadDebugForValidatedRpc(NetworkManager, reader, out int startReaderRemaining, out string rpcInformation, out uint expectedReadAmount);
+#endif
+            int readerStartAfterDebug = reader.Position;
 
-            //Link index isn't stored.
+            int dataLength;
+            // Link index isn't stored.
             if (!_rpcLinks.TryGetValueIL2CPP(index, out RpcLink link))
             {
+                dataLength = Packets.GetPacketLength(ushort.MaxValue, reader, channel);
                 SkipDataLength(index, reader, dataLength);
-                return;
             }
-            else
-            //Found NetworkObject for link.
-            if (Spawned.TryGetValueIL2CPP(link.ObjectId, out NetworkObject nob))
+            // Found NetworkObject for link.
+            else if (Spawned.TryGetValueIL2CPP(link.ObjectId, out NetworkObject nob))
             {
+                // Still call GetPacketLength to remove any extra bytes at the front of the reader.
                 NetworkBehaviour nb = nob.NetworkBehaviours[link.ComponentIndex];
-                if (link.RpcType == RpcType.Target)
-                    nb.OnTargetRpc(link.RpcHash, reader, channel);
-                else if (link.RpcType == RpcType.Observers)
-                    nb.OnObserversRpc(link.RpcHash, reader, channel);
-                else if (link.RpcType == RpcType.Reconcile)
-                    nb.OnReconcileRpc(link.RpcHash, reader, channel);
+                if (link.RpcPacketId == PacketId.TargetRpc)
+                {
+                    Packets.GetPacketLength((ushort)PacketId.TargetRpc, reader, channel);
+                    nb.ReadTargetRpc(readerStartAfterDebug, fromRpcLink: true, link.RpcHash, reader, channel);
+                }
+                else if (link.RpcPacketId == PacketId.ObserversRpc)
+                {
+                    Packets.GetPacketLength((ushort)PacketId.ObserversRpc, reader, channel);
+                    nb.ReadObserversRpc(readerStartAfterDebug, fromRpcLink: true, link.RpcHash, reader, channel);
+                }
+                else if (link.RpcPacketId == PacketId.Reconcile)
+                {
+                    Packets.GetPacketLength((ushort)PacketId.Reconcile, reader, channel);
+                    nb.OnReconcileRpc(readerStartAfterDebug, link.RpcHash, reader, channel);
+                }
             }
-            //Could not find NetworkObject.
+            // Could not find NetworkObject.
             else
             {
+                dataLength = Packets.GetPacketLength(index, reader, channel);
                 SkipDataLength(index, reader, dataLength, link.ObjectId);
             }
+
+#if DEVELOPMENT
+            NetworkBehaviour.TryPrintDebugForValidatedRpc(fromRpcLink: true, NetworkManager, reader, startReaderRemaining, rpcInformation, expectedReadAmount, channel);
+#endif
         }
 
         /// <summary>
         /// Sets link to rpcLinks key linkIndex.
         /// </summary>
-        /// <param name="linkIndex"></param>
-        /// <param name="link"></param>
+        /// <param name = "linkIndex"></param>
+        /// <param name = "link"></param>
         internal void SetRpcLink(ushort linkIndex, RpcLink link)
         {
             _rpcLinks[linkIndex] = link;
@@ -82,7 +96,5 @@ namespace FishNet.Managing.Client
             for (int i = 0; i < values.Count; i++)
                 _rpcLinks.Remove(values[i]);
         }
-
     }
-
 }

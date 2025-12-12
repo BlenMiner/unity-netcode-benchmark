@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.NetworkInformation;
@@ -22,14 +23,16 @@ namespace LiteNetLib
     /// </summary>
     public static class NetUtils
     {
+        private static readonly NetworkSorter NetworkSorter = new();
+
         public static IPEndPoint MakeEndPoint(string hostStr, int port)
         {
-            return new IPEndPoint(ResolveAddress(hostStr), port);
+            return new(ResolveAddress(hostStr), port);
         }
 
         public static IPAddress ResolveAddress(string hostStr)
         {
-            if(hostStr == "localhost")
+            if (hostStr == "localhost")
                 return IPAddress.Loopback;
 
             if (!IPAddress.TryParse(hostStr, out var ipAddress))
@@ -61,11 +64,11 @@ namespace LiteNetLib
         /// <summary>
         /// Get all local ip addresses
         /// </summary>
-        /// <param name="addrType">type of address (IPv4, IPv6 or both)</param>
+        /// <param name = "addrType">type of address (IPv4, IPv6 or both)</param>
         /// <returns>List with all local ip addresses</returns>
         public static List<string> GetLocalIpList(LocalAddrType addrType)
         {
-            List<string> targetList = new List<string>();
+            List<string> targetList = new();
             GetLocalIpList(targetList, addrType);
             return targetList;
         }
@@ -73,67 +76,70 @@ namespace LiteNetLib
         /// <summary>
         /// Get all local ip addresses (non alloc version)
         /// </summary>
-        /// <param name="targetList">result list</param>
-        /// <param name="addrType">type of address (IPv4, IPv6 or both)</param>
+        /// <param name = "targetList">result list</param>
+        /// <param name = "addrType">type of address (IPv4, IPv6 or both)</param>
         public static void GetLocalIpList(IList<string> targetList, LocalAddrType addrType)
         {
             bool ipv4 = (addrType & LocalAddrType.IPv4) == LocalAddrType.IPv4;
             bool ipv6 = (addrType & LocalAddrType.IPv6) == LocalAddrType.IPv6;
             try
             {
-                foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+                // Sort networks interfaces so it prefer Wifi over Cellular networks
+                // Most cellulars networks seems to be incompatible with NAT Punch
+                var networks = NetworkInterface.GetAllNetworkInterfaces();
+                Array.Sort(networks, NetworkSorter);
+
+                foreach (NetworkInterface ni in networks)
                 {
-                    //Skip loopback and disabled network interfaces
-                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
-                        ni.OperationalStatus != OperationalStatus.Up)
+                    // Skip loopback and disabled network interfaces
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback || ni.OperationalStatus != OperationalStatus.Up)
                         continue;
 
                     var ipProps = ni.GetIPProperties();
 
-                    //Skip address without gateway
+                    // Skip address without gateway
                     if (ipProps.GatewayAddresses.Count == 0)
                         continue;
 
                     foreach (UnicastIPAddressInformation ip in ipProps.UnicastAddresses)
                     {
                         var address = ip.Address;
-                        if ((ipv4 && address.AddressFamily == AddressFamily.InterNetwork) ||
-                            (ipv6 && address.AddressFamily == AddressFamily.InterNetworkV6))
+                        if ((ipv4 && address.AddressFamily == AddressFamily.InterNetwork) || (ipv6 && address.AddressFamily == AddressFamily.InterNetworkV6))
                             targetList.Add(address.ToString());
                     }
                 }
 
-	            //Fallback mode (unity android)
-	            if (targetList.Count == 0)
-	            {
-	                IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-	                foreach (IPAddress ip in addresses)
-	                {
-	                    if((ipv4 && ip.AddressFamily == AddressFamily.InterNetwork) ||
-	                       (ipv6 && ip.AddressFamily == AddressFamily.InterNetworkV6))
-	                        targetList.Add(ip.ToString());
-	                }
-	            }
+                // Fallback mode (unity android)
+                if (targetList.Count == 0)
+                {
+                    IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+                    foreach (IPAddress ip in addresses)
+                    {
+                        if ((ipv4 && ip.AddressFamily == AddressFamily.InterNetwork) || (ipv6 && ip.AddressFamily == AddressFamily.InterNetworkV6))
+                            targetList.Add(ip.ToString());
+                    }
+                }
             }
             catch
             {
-                //ignored
+                // ignored
             }
-            
+
             if (targetList.Count == 0)
             {
-                if(ipv4)
+                if (ipv4)
                     targetList.Add("127.0.0.1");
-                if(ipv6)
+                if (ipv6)
                     targetList.Add("::1");
             }
         }
 
-        private static readonly List<string> IpList = new List<string>();
+        private static readonly List<string> IpList = new();
+
         /// <summary>
         /// Get first detected local ip address
         /// </summary>
-        /// <param name="addrType">type of address (IPv4, IPv6 or both)</param>
+        /// <param name = "addrType">type of address (IPv4, IPv6 or both)</param>
         /// <returns>IP address if available. Else - string.Empty</returns>
         public static string GetLocalIp(LocalAddrType addrType)
         {
@@ -150,30 +156,23 @@ namespace LiteNetLib
         // ===========================================
         internal static void PrintInterfaceInfos()
         {
-            NetDebug.WriteForce(NetLogLevel.Info, "IPv6Support: {0}", NetManager.IPv6Support);
+            NetDebug.WriteForce(NetLogLevel.Info, $"IPv6Support: {NetManager.IPv6Support}");
             try
             {
                 foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
                     {
-                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork ||
-                            ip.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork || ip.Address.AddressFamily == AddressFamily.InterNetworkV6)
                         {
-                            NetDebug.WriteForce(
-                                NetLogLevel.Info,
-                                "Interface: {0}, Type: {1}, Ip: {2}, OpStatus: {3}",
-                                ni.Name,
-                                ni.NetworkInterfaceType.ToString(),
-                                ip.Address.ToString(),
-                                ni.OperationalStatus.ToString());
+                            NetDebug.WriteForce(NetLogLevel.Info, $"Interface: {ni.Name}, Type: {ni.NetworkInterfaceType}, Ip: {ip.Address}, OpStatus: {ni.OperationalStatus}");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                NetDebug.WriteForce(NetLogLevel.Info, "Error while getting interface infos: {0}", e.ToString());
+                NetDebug.WriteForce(NetLogLevel.Info, $"Error while getting interface infos: {e}");
             }
         }
 
@@ -189,6 +188,34 @@ namespace LiteNetLib
 #else
             return new T[count];
 #endif
+        }
+    }
+
+    // Pick the most obvious choice for the local IP
+    // Ethernet > Wifi > Others > Cellular
+    internal class NetworkSorter : IComparer<NetworkInterface>
+    {
+        [SuppressMessage("ReSharper", "PossibleNullReferenceException")]
+        public int Compare(NetworkInterface a, NetworkInterface b)
+        {
+            var isCellularA = a.NetworkInterfaceType == NetworkInterfaceType.Wman || a.NetworkInterfaceType == NetworkInterfaceType.Wwanpp || a.NetworkInterfaceType == NetworkInterfaceType.Wwanpp2;
+
+            var isCellularB = b.NetworkInterfaceType == NetworkInterfaceType.Wman || b.NetworkInterfaceType == NetworkInterfaceType.Wwanpp || b.NetworkInterfaceType == NetworkInterfaceType.Wwanpp2;
+
+            var isWifiA = a.NetworkInterfaceType == NetworkInterfaceType.Wireless80211;
+            var isWifiB = b.NetworkInterfaceType == NetworkInterfaceType.Wireless80211;
+
+            var isEthernetA = a.NetworkInterfaceType == NetworkInterfaceType.Ethernet || a.NetworkInterfaceType == NetworkInterfaceType.Ethernet3Megabit || a.NetworkInterfaceType == NetworkInterfaceType.GigabitEthernet || a.NetworkInterfaceType == NetworkInterfaceType.FastEthernetFx || a.NetworkInterfaceType == NetworkInterfaceType.FastEthernetT;
+
+            var isEthernetB = b.NetworkInterfaceType == NetworkInterfaceType.Ethernet || b.NetworkInterfaceType == NetworkInterfaceType.Ethernet3Megabit || b.NetworkInterfaceType == NetworkInterfaceType.GigabitEthernet || b.NetworkInterfaceType == NetworkInterfaceType.FastEthernetFx || b.NetworkInterfaceType == NetworkInterfaceType.FastEthernetT;
+
+            var isOtherA = !isCellularA && !isWifiA && !isEthernetA;
+            var isOtherB = !isCellularB && !isWifiB && !isEthernetB;
+
+            var priorityA = isEthernetA ? 3 : isWifiA ? 2 : isOtherA ? 1 : 0;
+            var priorityB = isEthernetB ? 3 : isWifiB ? 2 : isOtherB ? 1 : 0;
+
+            return priorityA > priorityB ? -1 : priorityA < priorityB ? 1 : 0;
         }
     }
 }

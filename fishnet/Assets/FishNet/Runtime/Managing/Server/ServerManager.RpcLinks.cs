@@ -6,20 +6,17 @@ using UnityEngine;
 
 namespace FishNet.Managing.Server
 {
-
     public sealed partial class ServerManager : MonoBehaviour
     {
-
-
         #region Internal
         /// <summary>
         /// Current RPCLinks.
         /// </summary>
-        internal Dictionary<ushort, RpcLink> RpcLinks = new Dictionary<ushort, RpcLink>();
+        internal Dictionary<ushort, RpcLink> RpcLinks = new();
         /// <summary>
         /// RPCLink indexes which can be used.
         /// </summary>
-        private Queue<ushort> _availableRpcLinkIndexes = new Queue<ushort>();
+        private Queue<ushort> _availableRpcLinkIndexes = new();
         #endregion
 
         /// <summary>
@@ -64,8 +61,7 @@ namespace FishNet.Managing.Server
         internal void StoreRpcLinks(Dictionary<uint, RpcLinkType> links)
         {
             foreach (RpcLinkType rlt in links.Values)
-                _availableRpcLinkIndexes.Enqueue(rlt.LinkIndex);
+                _availableRpcLinkIndexes.Enqueue(rlt.LinkPacketId);
         }
     }
-
 }

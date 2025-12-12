@@ -1,11 +1,14 @@
 ﻿#if UNITY_EDITOR
+using System;
 using FishNet.Configuring;
+using FishNet.Managing;
 using FishNet.Managing.Object;
 using FishNet.Object;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using FishNet.Configuring.EditorCloning;
 using UnityEditor;
 using UnityEngine;
 using UnityDebug = UnityEngine.Debug;
@@ -22,6 +25,7 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 EditorApplication.update += OnEditorUpdate;
             }
         }
+
         ~Generator()
         {
             if (_subscribed)
@@ -32,10 +36,10 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         }
 
         #region Types.
-        private struct SpecifiedFolder
+        internal readonly struct SpecifiedFolder
         {
-            public string Path;
-            public bool Recursive;
+            public readonly string Path;
+            public readonly bool Recursive;
 
             public SpecifiedFolder(string path, bool recursive)
             {
@@ -78,7 +82,7 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         /// Last paths of updated nobs during a changed update.
         /// </summary>
         [System.NonSerialized]
-        private static List<string> _lastUpdatedNamePaths = new List<string>();
+        private static List<string> _lastUpdatedNamePaths = new();
         /// <summary>
         /// Last frame changed was updated.
         /// </summary>
@@ -91,40 +95,40 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         private static int _lastUpdatedLengths = -1;
         #endregion
 
-        public static string[] GetPrefabFiles(string startingPath, HashSet<string> excludedPaths, bool recursive)
+        internal static string[] GetProjectFiles(string startingPath, string fileExtension, List<string> excludedPaths, bool recursive)
         {
-            //Opportunity to exit early if there are no excluded paths.
+            // Opportunity to exit early if there are no excluded paths.
             if (excludedPaths.Count == 0)
             {
-                string[] strResults = Directory.GetFiles(startingPath, "*.prefab", SearchOption.AllDirectories);
+                string[] strResults = Directory.GetFiles(startingPath, $"*{fileExtension}", SearchOption.AllDirectories);
                 return strResults;
             }
-            //starting path is excluded.
+            // starting path is excluded.
             if (excludedPaths.Contains(startingPath))
                 return new string[0];
 
-            //Folders remaining to be iterated.
-            List<string> enumeratedCollection = new List<string>() { startingPath };
-            //Only check other directories if recursive.
+            // Folders remaining to be iterated.
+            List<string> enumeratedCollection = new() { startingPath };
+            // Only check other directories if recursive.
             if (recursive)
             {
-                //Find all folders which aren't excluded.
+                // Find all folders which aren't excluded.
                 for (int i = 0; i < enumeratedCollection.Count; i++)
                 {
                     string[] allFolders = Directory.GetDirectories(enumeratedCollection[i], "*", SearchOption.TopDirectoryOnly);
                     for (int z = 0; z < allFolders.Length; z++)
                     {
                         string current = allFolders[z];
-                        //Not excluded.
+                        // Not excluded.
                         if (!excludedPaths.Contains(current))
                             enumeratedCollection.Add(current);
                     }
                 }
             }
 
-            //Valid prefab files.
-            List<string> results = new List<string>();
-            //Build files from folders.
+            // Valid prefab files.
+            List<string> results = new();
+            // Build files from folders.
             int count = enumeratedCollection.Count;
             for (int i = 0; i < count; i++)
             {
@@ -133,59 +137,6 @@ namespace FishNet.Editing.PrefabCollectionGenerator
             }
 
             return results.ToArray();
-        }
-
-        /// <summary>
-        /// Removes paths which may overlap each other, such as sub directories.
-        /// </summary>
-        private static void RemoveOverlappingFolders(List<SpecifiedFolder> folders)
-        {
-            for (int z = 0; z < folders.Count; z++)
-            {
-                for (int i = 0; i < folders.Count; i++)
-                {
-                    //Do not check against self.
-                    if (i == z)
-                        continue;
-
-                    //Duplicate.
-                    if (folders[z].Path.Equals(folders[i].Path, System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        UnityDebug.LogError($"The same path is specified multiple times in the DefaultPrefabGenerator settings. Remove the duplicate to clear this error.");
-                        folders.RemoveAt(i);
-                        break;
-                    }
-
-                    /* We are checking if i can be within
-                     * z. This is only possible if i is longer
-                     * than z. */
-                    if (folders[i].Path.Length < folders[z].Path.Length)
-                        continue;
-                    /* Do not need to check if not recursive.
-                     * Only recursive needs to be checked because
-                     * a shorter recursive path could contain
-                     * a longer path. */
-                    if (!folders[z].Recursive)
-                        continue;
-
-                    //Compare paths.
-                    string zPath = GetPathWithSeparator(folders[z].Path);
-                    string iPath = zPath.Substring(0, zPath.Length);
-                    //If paths match.
-                    if (iPath.Equals(zPath, System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        UnityDebug.LogError($"Path {folders[i].Path} is included within recursive path {folders[z].Path}. Remove path {folders[i].Path} to clear this error.");
-                        folders.RemoveAt(i);
-                        break;
-                    }
-                }
-            }
-
-            string GetPathWithSeparator(string txt)
-            {
-                return txt.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    + Path.DirectorySeparatorChar;
-            }
         }
 
         /// <summary>
@@ -204,13 +155,15 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         /// </summary>
         public static void GenerateChanged(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, PrefabGeneratorConfigurations settings = null)
         {
-#if PARRELSYNC
-            if (ParrelSync.ClonesManager.IsClone() && ParrelSync.Preferences.AssetModPref.Value)
+            if (!CloneChecker.CanGenerateFiles())
             {
-                UnityDebug.Log("Skipping prefab generation in ParrelSync clone");
+                UnityDebug.Log("Skipping prefab generation as clone settings does not allow it.");
                 return;
             }
-#endif
+
+            // Do not run if the reserializer is currently running.
+            if (ReserializeNetworkObjectsEditor.IsRunning)
+                return;
 
             if (settings == null)
                 settings = Configuration.Configurations.PrefabGenerator;
@@ -218,30 +171,30 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 return;
 
             bool log = settings.LogToConsole;
-            Stopwatch sw = (log) ? Stopwatch.StartNew() : null;
+            Stopwatch sw = log ? Stopwatch.StartNew() : null;
 
             DefaultPrefabObjects prefabCollection = GetDefaultPrefabObjects(settings);
-            //No need to error if nto found, GetDefaultPrefabObjects will.
+            // No need to error if nto found, GetDefaultPrefabObjects will.
             if (prefabCollection == null)
                 return;
 
-            int assetsLength = (importedAssets.Length + deletedAssets.Length + movedAssets.Length + movedFromAssetPaths.Length);
-            List<string> changedNobPaths = new List<string>();
+            int assetsLength = importedAssets.Length + deletedAssets.Length + movedAssets.Length + movedFromAssetPaths.Length;
+            List<string> changedNobPaths = new();
 
-            System.Type goType = typeof(UnityEngine.GameObject);
+            System.Type goType = typeof(GameObject);
             IterateAssetCollection(importedAssets);
             IterateAssetCollection(movedAssets);
 
-            //True if dirtied by changes.
+            // True if dirtied by changes.
             bool dirtied;
-            //First remove null entries.
+            // First remove null entries.
             int startCount = prefabCollection.GetObjectCount();
             prefabCollection.RemoveNull();
-            dirtied = (prefabCollection.GetObjectCount() != startCount);
-            //First index which new objects will be added to.
-            int firstAddIndex = (prefabCollection.GetObjectCount() - 1);
+            dirtied = prefabCollection.GetObjectCount() != startCount;
+            // First index which new objects will be added to.
+            int firstAddIndex = prefabCollection.GetObjectCount() - 1;
 
-            //Iterates strings adding prefabs to collection.
+            // Iterates strings adding prefabs to collection.
             void IterateAssetCollection(string[] c)
             {
                 foreach (string item in c)
@@ -251,7 +204,7 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                         continue;
 
                     NetworkObject nob = AssetDatabase.LoadAssetAtPath<NetworkObject>(item);
-                    if (nob != null)
+                    if (CanAddNetworkObject(nob, settings))
                     {
                         changedNobPaths.Add(item);
                         prefabCollection.AddObject(nob, true);
@@ -260,7 +213,7 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 }
             }
 
-            //To prevent out of range.
+            // To prevent out of range.
             if (firstAddIndex < 0 || firstAddIndex >= prefabCollection.GetObjectCount())
                 firstAddIndex = 0;
             dirtied |= prefabCollection.SetAssetPathHashes(firstAddIndex);
@@ -268,10 +221,10 @@ namespace FishNet.Editing.PrefabCollectionGenerator
             if (log && dirtied)
                 UnityDebug.Log($"Default prefab generator updated prefabs in {sw.ElapsedMilliseconds}ms.{GetDirtiedMessage(settings, dirtied)}");
 
-            //Check for redundancy.
+            // Check for redundancy.
             int frameCount = Time.frameCount;
             int changedCount = changedNobPaths.Count;
-            if (frameCount == _lastUpdatedFrame && assetsLength == _lastUpdatedLengths && (changedCount == _lastUpdatedNamePaths.Count) && changedCount > 0)
+            if (frameCount == _lastUpdatedFrame && assetsLength == _lastUpdatedLengths && changedCount == _lastUpdatedNamePaths.Count && changedCount > 0)
             {
                 bool allMatch = true;
                 for (int i = 0; i < changedCount; i++)
@@ -287,16 +240,13 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                  * then there is likely an issue saving the assets. */
                 if (allMatch)
                 {
-                    //Unset dirtied to prevent a save.
+                    // Unset dirtied to prevent a save.
                     dirtied = false;
-                    //Log this no matter what, it's critical.
-                    UnityDebug.LogError($"Default prefab generator had a problem saving one or more assets. " +
-                        $"This usually occurs when the assets cannot be saved due to missing scripts or serialization errors. " +
-                        $"Please see above any prefabs which could not save any make corrections.");
+                    // Log this no matter what, it's critical.
+                    UnityDebug.LogError($"Default prefab generator had a problem saving one or more assets. " + $"This usually occurs when the assets cannot be saved due to missing scripts or serialization errors. " + $"Please see above any prefabs which could not save any make corrections.");
                 }
-
             }
-            //Set last values.
+            // Set last values.
             _lastUpdatedFrame = Time.frameCount;
             _lastUpdatedNamePaths = changedNobPaths;
             _lastUpdatedLengths = assetsLength;
@@ -307,81 +257,124 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         }
 
         /// <summary>
-        /// Generates prefabs by iterating all files within settings parameters.
+        /// Gets NetworkObjects from folders using settings.
         /// </summary>
-        public static void GenerateFull(PrefabGeneratorConfigurations settings = null, bool forced = false)
+        internal static List<NetworkObject> GetNetworkObjects(PrefabGeneratorConfigurations settings = null)
         {
-#if PARRELSYNC
-            if (ParrelSync.ClonesManager.IsClone() && ParrelSync.Preferences.AssetModPref.Value)
-            {
-                UnityDebug.Log("Skipping prefab generation in ParrelSync clone");
-                return;
-            }
-#endif
+            List<SpecifiedFolder> folders = GetSpecifiedFolders(settings);
+            if (folders == null)
+                return new();
 
-            if (settings == null)
-                settings = Configuration.Configurations.PrefabGenerator;
-            if (!forced && !settings.Enabled)
-                return;
-            bool log = settings.LogToConsole;
+            return GetNetworkObjects(folders, settings);
+        }
 
-            Stopwatch sw = (log) ? Stopwatch.StartNew() : null;
-            List<NetworkObject> foundNobs = new List<NetworkObject>();
-            HashSet<string> excludedPaths = new HashSet<string>(settings.ExcludedFolders);
+        /// <summary>
+        /// Gets specified folders to check for prefab generation. This may include excluded paths. Null is returned on error.
+        /// </summary>
+        internal static List<SpecifiedFolder> GetSpecifiedFolders(PrefabGeneratorConfigurations settings = null)
+        {
+            settings = GetSettingsIfNull(settings);
 
-            //If searching the entire project.
+            List<string> folderStrs;
+
             if (settings.SearchScope == (int)SearchScopeType.EntireProject)
             {
-                foreach (string path in GetPrefabFiles("Assets", excludedPaths, true))
-                {
-                    NetworkObject nob = AssetDatabase.LoadAssetAtPath<NetworkObject>(path);
-                    if (nob != null)
-                        foundNobs.Add(nob);
-                }
+                folderStrs = new();
+                folderStrs.Add("Assets*");
             }
-            //Specific folders.
             else if (settings.SearchScope == (int)SearchScopeType.SpecificFolders)
             {
-                List<SpecifiedFolder> folders = GetSpecifiedFolders(settings.IncludedFolders.ToList());
-                RemoveOverlappingFolders(folders);
-
-                foreach (SpecifiedFolder sf in folders)
-                {
-                    //If specified folder doesn't exist then continue.
-                    if (!Directory.Exists(sf.Path))
-                        continue;
-
-                    foreach (string path in GetPrefabFiles(sf.Path, excludedPaths, sf.Recursive))
-                    {
-                        NetworkObject nob = AssetDatabase.LoadAssetAtPath<NetworkObject>(path);
-                        if (nob != null)
-                            foundNobs.Add(nob);
-                    }
-                }
+                folderStrs = settings.IncludedFolders.ToList();
             }
-            //Unhandled.
             else
             {
-                UnityDebug.LogError($"{settings.SearchScope} is not handled; default prefabs will not generator properly.");
+                UnityDebug.LogError($"{settings.SearchScope} is not handled; folder paths cannot be found.");
+                return null;
             }
 
+            return GetSpecifiedFolders(folderStrs);
+        }
+
+        /// <summary>
+        /// Gets all NetworkObjects in specified folders while ignoring any excluded paths.
+        /// </summary>
+        internal static List<NetworkObject> GetNetworkObjects(SpecifiedFolder specifiedFolder, PrefabGeneratorConfigurations settings = null)
+        {
+            List<string> excludedPaths = GetSettingsIfNull(settings).ExcludedFolders;
+
+            List<NetworkObject> foundNobs = new();
+
+            foreach (string path in GetProjectFiles(specifiedFolder.Path, "prefab", excludedPaths, specifiedFolder.Recursive))
+            {
+                NetworkObject nob = AssetDatabase.LoadAssetAtPath<NetworkObject>(path);
+                if (CanAddNetworkObject(nob, settings))
+                    foundNobs.Add(nob);
+            }
+
+            return foundNobs;
+        }
+
+        /// <summary>
+        /// Gets all NetworkObjects in specified folders while ignoring any excluded paths.
+        /// </summary>
+        internal static List<NetworkObject> GetNetworkObjects(List<SpecifiedFolder> specifiedFolders, PrefabGeneratorConfigurations settings = null)
+        {
+            List<NetworkObject> foundNobs = new();
+
+            foreach (SpecifiedFolder sf in specifiedFolders)
+                foundNobs.AddRange(GetNetworkObjects(sf, settings));
+
+            foundNobs = foundNobs.OrderBy(nob => nob.AssetPathHash).ToList();
+
+            return foundNobs;
+        }
+
+        /// <summary>
+        /// Generates prefabs by iterating all files within settings parameters.
+        /// </summary>
+        public static void GenerateFull(PrefabGeneratorConfigurations settings = null, bool forced = false, bool initializeAdded = true)
+        {
+            if (!CloneChecker.CanGenerateFiles())
+            {
+                UnityDebug.Log("Skipping prefab generation as clone settings does not allow it.");
+                return;
+            }
+
+            // Do not run if the re-serializer is currently running.
+            if (ReserializeNetworkObjectsEditor.IsRunning)
+            {
+                UnityDebug.LogError($"Cannot generate default prefabs when ReserializeNetworkObjectsEditor is running");
+                return;
+            }
+
+            settings = GetSettingsIfNull(settings);
+
+            if (!forced && !settings.Enabled)
+                return;
+
+            bool log = settings.LogToConsole;
+
+            Stopwatch sw = log ? Stopwatch.StartNew() : null;
+
             DefaultPrefabObjects prefabCollection = GetDefaultPrefabObjects(settings);
-            //No need to error if not found, GetDefaultPrefabObjects will throw.
+            // No need to error if not found, GetDefaultPrefabObjects will throw.
             if (prefabCollection == null)
                 return;
 
-            //Clear and add built list.
+            List<NetworkObject> foundNobs = GetNetworkObjects(settings);
+
+            // Clear and add built list.
             prefabCollection.Clear();
-            prefabCollection.AddObjects(foundNobs, false);
+            prefabCollection.AddObjects(foundNobs, checkForDuplicates: false, initializeAdded);
             bool dirtied = prefabCollection.SetAssetPathHashes(0);
 
             int newCount = prefabCollection.GetObjectCount();
             if (log)
             {
-                string dirtiedMessage = (newCount > 0) ? GetDirtiedMessage(settings, dirtied) : string.Empty;
+                string dirtiedMessage = newCount > 0 ? GetDirtiedMessage(settings, dirtied) : string.Empty;
                 UnityDebug.Log($"Default prefab generator found {newCount} prefabs in {sw.ElapsedMilliseconds}ms.{dirtiedMessage}");
             }
-            //Only set dirty if and save if prefabs were found.
+            // Only set dirty if and save if prefabs were found.
             if (newCount > 0)
             {
                 EditorUtility.SetDirty(prefabCollection);
@@ -391,13 +384,18 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         }
 
         /// <summary>
+        /// Returns settings parameter if not null, otherwise returns settings from configuration.
+        /// </summary>
+        internal static PrefabGeneratorConfigurations GetSettingsIfNull(PrefabGeneratorConfigurations settings) => settings == null ? Configuration.Configurations.PrefabGenerator : settings;
+
+        /// <summary>
         /// Iterates folders building them into SpecifiedFolders.
         /// </summary>
-        private static List<SpecifiedFolder> GetSpecifiedFolders(List<string> folders)
+        internal static List<SpecifiedFolder> GetSpecifiedFolders(List<string> strFolders)
         {
-            List<SpecifiedFolder> results = new List<SpecifiedFolder>();
-            //Remove astericks.
-            foreach (string path in folders)
+            List<SpecifiedFolder> results = new();
+            // Remove astericks.
+            foreach (string path in strFolders)
             {
                 int pLength = path.Length;
                 if (pLength == 0)
@@ -405,7 +403,7 @@ namespace FishNet.Editing.PrefabCollectionGenerator
 
                 bool recursive;
                 string p;
-                //If the last character indicates resursive.
+                // If the last character indicates resursive.
                 if (path.Substring(pLength - 1, 1) == "*")
                 {
                     p = path.Substring(0, pLength - 1);
@@ -418,10 +416,73 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 }
 
                 p = GetPlatformPath(p);
-                results.Add(new SpecifiedFolder(p, recursive));
+
+                // Path does not exist.
+                if (!Directory.Exists(p))
+                    continue;
+
+                results.Add(new(p, recursive));
             }
 
+
+            RemoveOverlappingFolders(results);
+
             return results;
+
+            // Removes paths which may overlap each other, such as sub directories.
+            static void RemoveOverlappingFolders(List<SpecifiedFolder> specifiedFolders)
+            {
+                for (int z = 0; z < specifiedFolders.Count; z++)
+                {
+                    for (int i = 0; i < specifiedFolders.Count; i++)
+                    {
+                        // Do not check against self.
+                        if (i == z)
+                            continue;
+
+                        string zPath = GetPathWithSeparator(specifiedFolders[z].Path);
+                        string iPath = GetPathWithSeparator(specifiedFolders[i].Path);
+
+                        // Duplicate.
+                        if (zPath.Equals(iPath, System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            UnityDebug.LogError($"The same path is specified multiple times in the DefaultPrefabGenerator settings. Remove the duplicate to clear this error.");
+                            specifiedFolders.RemoveAt(i);
+                            break;
+                        }
+
+                        /* We are checking if i can be within
+                         * z. This is only possible if i is longer
+                         * than z. */
+                        if (iPath.Length < zPath.Length)
+                            continue;
+                        /* Do not need to check if not recursive.
+                         * Only recursive needs to be checked because
+                         * a shorter recursive path could contain
+                         * a longer path. */
+                        if (!specifiedFolders[z].Recursive)
+                            continue;
+
+                        // // Compare paths.
+                        // string zPath = GetPathWithSeparator(specifiedFolders[z].Path);
+                        // string iPath = specifiedFolders[i].Path.Substring(0, zPath.Length);
+                        string iPathRecursiveCheck = iPath.Substring(0, zPath.Length);
+                        
+                        // If paths match.
+                        if (iPathRecursiveCheck.Equals(zPath, System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            UnityDebug.LogError($"Path {specifiedFolders[i].Path} is included within recursive path {specifiedFolders[z].Path}. Remove path {specifiedFolders[i].Path} to clear this error.");
+                            specifiedFolders.RemoveAt(i);
+                            break;
+                        }
+                    }
+                }
+
+                string GetPathWithSeparator(string txt)
+                {
+                    return txt.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                }
+            }
         }
 
         internal static string GetPlatformPath(string path)
@@ -437,37 +498,41 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         /// <summary>
         /// Returns the DefaultPrefabObjects file.
         /// </summary>
-        private static DefaultPrefabObjects GetDefaultPrefabObjects(PrefabGeneratorConfigurations settings = null)
+        internal static DefaultPrefabObjects GetDefaultPrefabObjects(PrefabGeneratorConfigurations settings = null)
         {
             if (settings == null)
                 settings = Configuration.Configurations.PrefabGenerator;
 
-            //Load the prefab collection 
-            string defaultPrefabsPath = settings.DefaultPrefabObjectsPath_Platform;
-            string fullDefaultPrefabsPath = (defaultPrefabsPath.Length > 0) ? Path.GetFullPath(defaultPrefabsPath) : string.Empty;
+            // If not using default prefabs then exit early.
+            if (!settings.Enabled)
+                return null;
 
-            //If cached prefabs is not the same path as assetPath.
+            // Load the prefab collection 
+            string defaultPrefabsPath = settings.DefaultPrefabObjectsPath_Platform;
+            string fullDefaultPrefabsPath = defaultPrefabsPath.Length > 0 ? Path.GetFullPath(defaultPrefabsPath) : string.Empty;
+
+            // If cached prefabs is not the same path as assetPath.
             if (_cachedDefaultPrefabs != null)
             {
                 string unityAssetPath = AssetDatabase.GetAssetPath(_cachedDefaultPrefabs);
-                string fullCachedPath = (unityAssetPath.Length > 0) ? Path.GetFullPath(unityAssetPath) : string.Empty;
+                string fullCachedPath = unityAssetPath.Length > 0 ? Path.GetFullPath(unityAssetPath) : string.Empty;
                 if (fullCachedPath != fullDefaultPrefabsPath)
                     _cachedDefaultPrefabs = null;
             }
 
-            //If cached is null try to get it.
+            // If cached is null try to get it.
             if (_cachedDefaultPrefabs == null)
             {
-                //Only try to load it if file exist.
+                // Only try to load it if file exist.
                 if (File.Exists(fullDefaultPrefabsPath))
                 {
                     _cachedDefaultPrefabs = AssetDatabase.LoadAssetAtPath<DefaultPrefabObjects>(defaultPrefabsPath);
                     if (_cachedDefaultPrefabs == null)
                     {
-                        //If already retried then throw an error.
+                        // If already retried then throw an error.
                         if (_retryRefreshDefaultPrefabs)
                         {
-                            UnityDebug.LogError("DefaultPrefabObjects file exists but it could not be loaded by Unity. Use the Fish-Networking menu to Refresh Default Prefabs.");
+                            UnityDebug.LogError("DefaultPrefabObjects file exists but it could not be loaded by Unity. Use the Fish-Networking menu -> Utility -> Refresh Default Prefabs to refresh prefabs.");
                         }
                         else
                         {
@@ -479,10 +544,13 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 }
             }
 
-#if PARRELSYNC
-            if (!ParrelSync.ClonesManager.IsClone() && ParrelSync.Preferences.AssetModPref.Value)
+            // Will be true also if not a clone.
+            if (CloneChecker.CanGenerateFiles())
+                CreateDefaultPrefabsAssetIfNeeded();
+
+            // Creates DefaultPrefabs asset if missing or not set.
+            void CreateDefaultPrefabsAssetIfNeeded()
             {
-#endif
                 if (_cachedDefaultPrefabs == null)
                 {
                     string fullPath = Path.GetFullPath(defaultPrefabsPath);
@@ -499,12 +567,11 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                     AssetDatabase.CreateAsset(_cachedDefaultPrefabs, defaultPrefabsPath);
                     AssetDatabase.SaveAssets();
                 }
-#if PARRELSYNC
             }
-#endif
 
             if (_cachedDefaultPrefabs != null && _retryRefreshDefaultPrefabs)
                 UnityDebug.Log("DefaultPrefabObjects found on the second iteration.");
+
             return _cachedDefaultPrefabs;
         }
 
@@ -527,10 +594,10 @@ namespace FishNet.Editing.PrefabCollectionGenerator
         {
             if (Application.isPlaying)
                 return;
-            //If retrying next frame don't bother updating, next frame will do a full refresh.
+            // If retrying next frame don't bother updating, next frame will do a full refresh.
             if (_retryRefreshDefaultPrefabs)
                 return;
-            //Post process is being ignored. Could be temporary or user has disabled this feature.
+            // Post process is being ignored. Could be temporary or user has disabled this feature.
             if (IgnorePostProcess)
                 return;
             /* Don't iterate if updating or compiling as that could cause an infinite loop
@@ -546,45 +613,43 @@ namespace FishNet.Editing.PrefabCollectionGenerator
 
             if (prefabCollection.GetObjectCount() == 0)
             {
-                //If there are no prefabs then do a full rebuild. Odds of there being none are pretty much nill.
+                // If there are no prefabs then do a full rebuild. Odds of there being none are pretty much nill.
                 GenerateFull(settings);
             }
             else
             {
                 int totalChanges = importedAssets.Length + deletedAssets.Length + movedAssets.Length + movedFromAssetPaths.Length;
-                //Nothing has changed. This shouldn't occur but unity is funny so we're going to check anyway.
+                // Nothing has changed. This shouldn't occur but unity is funny so we're going to check anyway.
                 if (totalChanges == 0)
                     return;
 
-                //normalizes path.
+                // Normalizes path.
                 string dpoPath = Path.GetFullPath(settings.DefaultPrefabObjectsPath_Platform);
-                //If total changes is 1 and the only changed file is the default prefab collection then do nothing.
+                // If total changes is 1 and the only changed file is the default prefab collection then do nothing.
                 if (totalChanges == 1)
                 {
-                    //Do not need to check movedFromAssetPaths because that's not possible for this check.
-                    if ((importedAssets.Length == 1 && Path.GetFullPath(importedAssets[0]) == dpoPath)
-                        || (deletedAssets.Length == 1 && Path.GetFullPath(deletedAssets[0]) == dpoPath)
-                        || (movedAssets.Length == 1 && Path.GetFullPath(movedAssets[0]) == dpoPath))
+                    // Do not need to check movedFromAssetPaths because that's not possible for this check.
+                    if ((importedAssets.Length == 1 && Path.GetFullPath(importedAssets[0]) == dpoPath) || (deletedAssets.Length == 1 && Path.GetFullPath(deletedAssets[0]) == dpoPath) || (movedAssets.Length == 1 && Path.GetFullPath(movedAssets[0]) == dpoPath))
                         return;
 
                     /* If the only change is an import then check if the imported file
                      * is the same as the last, and if so check into returning early.
                      * For some reason occasionally when files are saved unity runs postprocess
                      * multiple times on the same file. */
-                    string imported = (importedAssets.Length == 1) ? importedAssets[0] : null;
+                    string imported = importedAssets.Length == 1 ? importedAssets[0] : null;
                     if (imported != null && imported == _lastSingleImportedAsset)
                     {
-                        //If here then the file is the same. Make sure it's already in the collection before returning.
+                        // If here then the file is the same. Make sure it's already in the collection before returning.
                         System.Type assetType = AssetDatabase.GetMainAssetTypeAtPath(imported);
-                        //Not a gameObject, no reason to continue.
+                        // Not a gameObject, no reason to continue.
                         if (assetType != typeof(GameObject))
                             return;
 
                         NetworkObject nob = AssetDatabase.LoadAssetAtPath<NetworkObject>(imported);
-                        //If is a networked object.
-                        if (nob != null)
+                        // If is a networked object.
+                        if (CanAddNetworkObject(nob, settings))
                         {
-                            //Already added!
+                            // Already added!
                             if (prefabCollection.Prefabs.Contains(nob))
                                 return;
                         }
@@ -598,44 +663,22 @@ namespace FishNet.Editing.PrefabCollectionGenerator
 
                 bool fullRebuild = settings.FullRebuild;
                 /* If updating FN. This needs to be done a better way.
-                 * Parsing the actual version file would be better. 
+                 * Parsing the actual version file would be better.
                  * I'll get to it next release. */
                 if (!_ranOnce)
                 {
                     _ranOnce = true;
                     fullRebuild = true;
                 }
-                else
+                // Other conditions which a full rebuild may be required.
+                else if (!fullRebuild)
                 {
-                    CheckForVersionFile(importedAssets);
-                    CheckForVersionFile(deletedAssets);
-                    CheckForVersionFile(movedAssets);
-                    CheckForVersionFile(movedFromAssetPaths);
-                }
-
-                /* See if any of the changed files are the version file.
-                * A new version file suggests an update. Granted, this could occur if
-                * other assets imported a new version file as well but better
-                * safe than sorry. */
-                void CheckForVersionFile(string[] arr)
-                {
-                    string targetText = "VERSION.txt".ToLower();
-                    int targetLength = targetText.Length;
-
-                    for (int i = 0; i < arr.Length; i++)
+                    const string fishnetVersionSave = "fishnet_version";
+                    string savedVersion = EditorPrefs.GetString(fishnetVersionSave, string.Empty);
+                    if (savedVersion != NetworkManager.FISHNET_VERSION)
                     {
-                        string item = arr[i];
-                        int itemLength = item.Length;
-                        if (itemLength < targetLength)
-                            continue;
-
-                        item = item.ToLower();
-                        int startIndex = (itemLength - targetLength);
-                        if (item.Substring(startIndex, targetLength) == targetText)
-                        {
-                            fullRebuild = true;
-                            return;
-                        }
+                        fullRebuild = true;
+                        EditorPrefs.SetString(fishnetVersionSave, NetworkManager.FISHNET_VERSION);
                     }
                 }
 
@@ -644,6 +687,15 @@ namespace FishNet.Editing.PrefabCollectionGenerator
                 else
                     GenerateChanged(importedAssets, deletedAssets, movedAssets, movedFromAssetPaths, settings);
             }
+        }
+
+        /// <summary>
+        /// Returns true if a NetworkObject can be added to DefaultPrefabs.
+        /// </summary>
+        private static bool CanAddNetworkObject(NetworkObject networkObject, PrefabGeneratorConfigurations settings)
+        {
+            settings = GetSettingsIfNull(settings);
+            return networkObject != null && (networkObject.GetIsSpawnable() || !settings.SpawnableOnly);
         }
     }
 }

@@ -1,9 +1,14 @@
-﻿using FishNet.Connection;
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using FishNet.CodeGenerating;
+using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Managing.Logging;
 using FishNet.Managing.Server;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
+using GameKit.Dependencies.Utilities;
 using UnityEngine;
 
 namespace FishNet.Component.Ownership
@@ -29,92 +34,127 @@ namespace FishNet.Component.Ownership
         /// True if to enable this component.
         /// </summary>
         [Tooltip("True if to enable this component.")]
-        [SyncVar(SendRate = 0f)]
         [SerializeField]
         private bool _allowTakeOwnership = true;
+        private readonly SyncVar<bool> _allowTakeOwnershipSyncVar = new();
+
         /// <summary>
         /// Sets the next value for AllowTakeOwnership and synchronizes it.
         /// Only the server may use this method.
         /// </summary>
-        /// <param name="value">Next value to use.</param>
+        /// <param name = "value">Next value to use.</param>
         [Server]
-        public void SetAllowTakeOwnership(bool value) => _allowTakeOwnership = value;
+        public void SetAllowTakeOwnership(bool value) => _allowTakeOwnershipSyncVar.Value = value;
         #endregion
+
+        protected virtual void Awake()
+        {
+            _allowTakeOwnershipSyncVar.Value = _allowTakeOwnership;
+            _allowTakeOwnershipSyncVar.UpdateSendRate(0f);
+            _allowTakeOwnershipSyncVar.OnChange += _allowTakeOwnershipSyncVar_OnChange;
+        }
+
+        /// <summary>
+        /// Called when SyncVar value changes for AllowTakeOwnership.
+        /// </summary>
+        private void _allowTakeOwnershipSyncVar_OnChange(bool prev, bool next, bool asServer)
+        {
+            if (asServer || !IsHostStarted)
+                _allowTakeOwnership = next;
+        }
 
         /// <summary>
         /// Called on the client after gaining or losing ownership.
         /// </summary>
-        /// <param name="prevOwner">Previous owner of this object.</param>
+        /// <param name = "prevOwner">Previous owner of this object.</param>
         public override void OnOwnershipClient(NetworkConnection prevOwner)
         {
             /* Unset taken ownership either way.
-            * If the new owner it won't be used,
-            * if no longer owner then another client
-            * took it. */
+             * If the new owner it won't be used,
+             * if no longer owner then another client
+             * took it. */
             TakingOwnership = false;
-            PreviousOwner = base.Owner;
+            PreviousOwner = Owner;
         }
 
-        /// <summary>
-        /// Takes ownership of this object to the local client and allows immediate control.
-        /// </summary>
         [Client]
-        public virtual void TakeOwnership()
+        [Obsolete("Use TakeOwnership(bool).")]
+        public virtual void TakeOwnership() => TakeOwnership(includeNested: true);
+
+        /// <summary>
+        /// Gives ownership of this to the local client and allows immediate control.
+        /// </summary>
+        /// <param name = "includeNested">True to also take ownership of nested objects.</param>
+        public virtual void TakeOwnership(bool includeNested)
         {
-            if (!_allowTakeOwnership)
+            if (!_allowTakeOwnershipSyncVar.Value)
                 return;
-            //Already owner.
-            if (base.IsOwner)
+            // Already owner.
+            if (IsOwner)
                 return;
 
-            NetworkConnection c = base.ClientManager.Connection;
+            NetworkConnection c = ClientManager.Connection;
             TakingOwnership = true;
             //If not server go through the server.
-            if (!base.IsServer)
+            if (!IsServerStarted)
             {
-                base.NetworkObject.SetLocalOwnership(c);
-                ServerTakeOwnership();
+                NetworkObject.SetLocalOwnership(c, includeNested);
+                ServerTakeOwnership(includeNested);
             }
             //Otherwise take directly without rpcs.
             else
             {
-                OnTakeOwnership(c);
+                OnTakeOwnership(c, includeNested);
             }
         }
-
 
         /// <summary>
         /// Takes ownership of this object.
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
-        private void ServerTakeOwnership(NetworkConnection caller = null)
+        private void ServerTakeOwnership(bool includeNested, NetworkConnection caller = null)
         {
-            OnTakeOwnership(caller);
+            OnTakeOwnership(caller, includeNested);
         }
+
+        [Server]
+        [Obsolete("Use OnTakeOwnership(bool).")]
+        protected virtual void OnTakeOwnership(NetworkConnection caller) => OnTakeOwnership(caller, recursive: false);
 
         /// <summary>
         /// Called on the server when a client tries to take ownership of this object.
         /// </summary>
-        /// <param name="caller">Connection trying to take ownership.</param>
+        /// <param name = "caller">Connection trying to take ownership.</param>
         [Server]
-        protected virtual void OnTakeOwnership(NetworkConnection caller)
+        protected virtual void OnTakeOwnership(NetworkConnection caller, bool recursive)
         {
             //Client somehow disconnected between here and there.
             if (!caller.IsActive)
                 return;
             //Feature is not enabled.
-            if (!_allowTakeOwnership)
+            if (!_allowTakeOwnershipSyncVar.Value)
                 return;
             //Already owner.
-            if (caller == base.Owner)
+            if (caller == Owner)
                 return;
 
-            base.GiveOwnership(caller);
+            GiveOwnership(caller);
+            if (recursive)
+            {
+                List<NetworkObject> allNested = NetworkObject.GetNetworkObjects(GetNetworkObjectOption.AllNestedRecursive);
+
+                foreach (NetworkObject nob in allNested)
+                {
+                    PredictedOwner po = nob.PredictedOwner;
+                    if (po != null)
+                        po.OnTakeOwnership(caller, recursive: true);
+                }
+
+                CollectionCaches<NetworkObject>.Store(allNested);
+            }
             /* No need to send a response back because an ownershipchange will handle changes.
              * Although if you were to override with this your own behavior
              * you could send responses for approved/denied. */
         }
-
     }
-
 }

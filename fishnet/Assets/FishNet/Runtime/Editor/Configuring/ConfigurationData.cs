@@ -5,20 +5,25 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using UnityEditor;
-
+using UnityEngine;
 
 namespace FishNet.Configuring
 {
-
     public enum StrippingTypes : int
     {
         Redirect = 0,
-        Empty_Experimental = 1,
+        Empty_Experimental = 1
     }
+
     public enum SearchScopeType : int
     {
         EntireProject = 0,
-        SpecificFolders = 1,
+        SpecificFolders = 1
+    }
+
+    public class CreateNewNetworkBehaviourConfigurations
+    {
+        public string templateDirectoryPath = "Assets";
     }
 
     public class PrefabGeneratorConfigurations
@@ -26,12 +31,13 @@ namespace FishNet.Configuring
         public bool Enabled = true;
         public bool LogToConsole = true;
         public bool FullRebuild = false;
+        public bool SpawnableOnly = true;
         public bool SaveChanges = true;
         public string DefaultPrefabObjectsPath = Path.Combine("Assets", "DefaultPrefabObjects.asset");
         internal string DefaultPrefabObjectsPath_Platform => Generator.GetPlatformPath(DefaultPrefabObjectsPath);
         public int SearchScope = (int)SearchScopeType.EntireProject;
-        public List<string> ExcludedFolders = new List<string>();
-        public List<string> IncludedFolders = new List<string>();
+        public List<string> ExcludedFolders = new();
+        public List<string> IncludedFolders = new();
     }
 
     public class CodeStrippingConfigurations
@@ -43,15 +49,14 @@ namespace FishNet.Configuring
         public int StrippingType = (int)StrippingTypes.Redirect;
     }
 
-
     public class ConfigurationData
     {
-        //Non serialized doesn't really do anything, its just for me.
-        [System.NonSerialized]
+        // Non serialized doesn't really do anything, its just for me.
+        [NonSerialized]
         public bool Loaded;
-
-        public PrefabGeneratorConfigurations PrefabGenerator = new PrefabGeneratorConfigurations();
-        public CodeStrippingConfigurations CodeStripping = new CodeStrippingConfigurations();
+        public PrefabGeneratorConfigurations PrefabGenerator = new();
+        public CodeStrippingConfigurations CodeStripping = new();
+        public CreateNewNetworkBehaviourConfigurations CreateNewNetworkBehaviour = new();
     }
 
     public static class ConfigurationDataExtension
@@ -61,8 +66,9 @@ namespace FishNet.Configuring
         /// </summary>
         public static bool HasChanged(this ConfigurationData a, ConfigurationData b)
         {
-            return (a.CodeStripping.StripReleaseBuilds != b.CodeStripping.StripReleaseBuilds);
+            return a.CodeStripping.StripReleaseBuilds != b.CodeStripping.StripReleaseBuilds;
         }
+
         /// <summary>
         /// Copies all values from source to target.
         /// </summary>
@@ -70,7 +76,6 @@ namespace FishNet.Configuring
         {
             target.CodeStripping.StripReleaseBuilds = source.CodeStripping.StripReleaseBuilds;
         }
-
 
         /// <summary>
         /// Writes a configuration data.
@@ -81,13 +86,13 @@ namespace FishNet.Configuring
              * memory during builds since on some Unity versions the building application is on a different
              * processor. In result instead of using memory to read configurationdata the values
              * must be written to disk then load the disk values as needed.
-             * 
+             *
              * Fortunatelly the file is extremely small and this does not occur often at all. The disk read
              * will occur once per script save, and once per assembly when building. */
             try
             {
                 string path = Configuration.GetAssetsPath(Configuration.CONFIG_FILE_NAME);
-                XmlSerializer serializer = new XmlSerializer(typeof(ConfigurationData));
+                XmlSerializer serializer = new(typeof(ConfigurationData));
                 TextWriter writer = new StreamWriter(path);
                 serializer.Serialize(writer, cd);
                 writer.Close();
@@ -101,11 +106,9 @@ namespace FishNet.Configuring
             }
             catch (Exception ex)
             {
-                throw new Exception($"An error occurred while writing ConfigurationData. Message: {ex.Message}");
+                throw new($"An error occurred while writing ConfigurationData. Message: {ex.Message}");
             }
-
         }
-
 
         /// <summary>
         /// Writes a configuration data.
@@ -116,12 +119,12 @@ namespace FishNet.Configuring
              * memory during builds since on some Unity versions the building application is on a different
              * processor. In result instead of using memory to read configurationdata the values
              * must be written to disk then load the disk values as needed.
-             * 
+             *
              * Fortunatelly the file is extremely small and this does not occur often at all. The disk read
              * will occur once per script save, and once per assembly when building. */
             try
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(ConfigurationData));
+                XmlSerializer serializer = new(typeof(ConfigurationData));
                 TextWriter writer = new StreamWriter(path);
                 serializer.Serialize(writer, cd);
                 writer.Close();
@@ -135,13 +138,9 @@ namespace FishNet.Configuring
             }
             catch (Exception ex)
             {
-                throw new Exception($"An error occurred while writing ConfigurationData. Message: {ex.Message}");
+                throw new($"An error occurred while writing ConfigurationData. Message: {ex.Message}");
             }
-
         }
-
     }
-
-
 }
 #endif

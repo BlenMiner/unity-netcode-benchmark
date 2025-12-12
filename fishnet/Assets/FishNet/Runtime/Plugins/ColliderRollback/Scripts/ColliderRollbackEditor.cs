@@ -5,7 +5,6 @@ using static FishNet.Component.ColliderRollback.ColliderRollback;
 
 namespace FishNet.Component.ColliderRollback
 {
-
     [CustomEditor(typeof(ColliderRollback), true)]
     [CanEditMultipleObjects]
     public class ColliderRollbackEditor : Editor
@@ -14,7 +13,6 @@ namespace FishNet.Component.ColliderRollback
         private SerializedProperty _physicsType;
         private SerializedProperty _boundingBoxSize;
         private SerializedProperty _colliderParents;
-
 
         protected virtual void OnEnable()
         {
@@ -33,7 +31,10 @@ namespace FishNet.Component.ColliderRollback
             EditorGUILayout.ObjectField("Script:", MonoScript.FromMonoBehaviour(nob), typeof(ColliderRollback), false);
             GUI.enabled = true;
 
-            EditorGUILayout.PropertyField(_boundingBox, new GUIContent("Bounding Box (experimental)"));
+            EditorGUILayout.LabelField("Settings", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+
+            EditorGUILayout.PropertyField(_boundingBox);
             if ((BoundingBoxType)_boundingBox.intValue != BoundingBoxType.Disabled)
             {
                 EditorGUI.indentLevel++;
@@ -43,12 +44,11 @@ namespace FishNet.Component.ColliderRollback
             }
             EditorGUILayout.PropertyField(_colliderParents);
 
+            EditorGUI.indentLevel--;
+
             serializedObject.ApplyModifiedProperties();
         }
-
     }
-
 }
-
 
 #endif

@@ -3,10 +3,11 @@ using FishNet.Managing;
 using FishNet.Managing.Scened;
 using FishNet.Managing.Timing;
 using FishNet.Transporting;
-using GameKit.Utilities;
+using GameKit.Dependencies.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -14,16 +15,6 @@ namespace FishNet.Component.ColliderRollback
 {
     public class RollbackManager : MonoBehaviour
     {
-        #region Types.
-        [System.Serializable, System.Flags] //Remove on 2024/01/01, replace with PhysicsType that is not part of RollbackManager.
-        public enum PhysicsType : byte
-        {
-            TwoDimensional = 1,
-            ThreeDimensional = 2,
-            Both = 4
-        }
-        #endregion
-
         #region Internal.
         /// <summary>
         /// Cached value for bounding box layermask.
@@ -36,7 +27,7 @@ namespace FishNet.Component.ColliderRollback
                 {
                     for (int i = 0; i < 32; i++)
                     {
-                        if ((1 << i) == BoundingBoxLayer.value)
+                        if (1 << i == BoundingBoxLayer.value)
                         {
                             _boundingBoxLayerNumber = i;
                             break;
@@ -52,7 +43,6 @@ namespace FishNet.Component.ColliderRollback
 
         #region Serialized.
         /// <summary>
-        /// 
         /// </summary>
         [Tooltip("Layer to use when creating and checking against bounding boxes. This should be different from any layer used.")]
         [SerializeField]
@@ -62,7 +52,6 @@ namespace FishNet.Component.ColliderRollback
         /// </summary>
         internal LayerMask BoundingBoxLayer => _boundingBoxLayer;
         /// <summary>
-        /// 
         /// </summary>
         [Tooltip("Maximum time in the past colliders can be rolled back to.")]
         [SerializeField]
@@ -72,7 +61,6 @@ namespace FishNet.Component.ColliderRollback
         /// </summary>
         internal float MaximumRollbackTime => _maximumRollbackTime;
         /// <summary>
-        /// 
         /// </summary>
         [Tooltip("Interpolation value for the NetworkTransforms or objects being rolled back.")]
         [Range(0, 250)]
@@ -80,134 +68,118 @@ namespace FishNet.Component.ColliderRollback
         internal ushort Interpolation = 2;
         #endregion
 
-        
-
-        
-
         /// <summary>
         /// Initializes this script for use.
         /// </summary>
-        /// <param name="manager"></param>
+        /// <param name = "manager"></param>
         internal void InitializeOnce_Internal(NetworkManager manager)
         {
-            
-        }
+            }
 
-        
+        [Obsolete("Use Rollback(Vector3, Vector3, float, PreciseTick, RollbackPhysicsType.Physics, bool) instead.")] //Remove on V5
+        public void Rollback(Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwnerAndClientHost = false)
+        {
+            }
 
+        [Obsolete("Use Rollback(Scene, Vector3, Vector3, float, PreciseTick, RollbackPhysicsType.Physics, bool) instead.")] //Remove on V5
+        public void Rollback(Scene scene, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwnerAndClientHost = false)
+        {
+            }
 
-        
+        [Obsolete("Use Rollback(int, Vector3, Vector3, float, PreciseTick, RollbackPhysicsType.Physics, bool) instead.")] //Remove on V5
+        public void Rollback(int sceneHandle, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwnerAndClientHost = false)
+        {
+            }
 
+        [Obsolete("Use Rollback(Scene, Vector3, Vector3, float, PreciseTick, RollbackPhysicsType.Physics2D, bool) instead.")] //Remove on V5
+        public void Rollback(Scene scene, Vector2 origin, Vector2 normalizedDirection, float distance, PreciseTick pt, bool asOwnerAndClientHost = false)
+        {
+            }
+
+        [Obsolete("Use Rollback(Vector3, Vector3, float, PreciseTick, RollbackPhysicsType.Physics2D, bool) instead.")] //Remove on V5
+        public void Rollback(Vector2 origin, Vector2 normalizedDirection, float distance, PreciseTick pt, bool asOwnerAndClientHost = false)
+        {
+            }
 
         /// <summary>
         /// Rolls back all colliders.
         /// </summary>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="physicsType">Type of physics to rollback; this is often what your casts will use.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        [Obsolete("Use Rollback(PreciseTick, RollbackPhysicsType, bool)")] //Remove on 2024/01/01.
-        public void Rollback(PreciseTick pt, PhysicsType physicsType, bool asOwner = false)
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
         {
-            
-        }
-
+            }
 
         /// <summary>
-        /// Rolls back all colliders.
+        /// Rolls back all colliders in a scene.
         /// </summary>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="physicsType">Type of physics to rollback; this is often what your casts will use.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        public void Rollback(PreciseTick pt, RollbackPhysicsType physicsType, bool asOwner = false)
+        /// <param name = "scene">Scene containing colliders.</param>
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(Scene scene, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
         {
-            
-        }
-
-
-        /// <summary>
-        /// Rolls back all colliders.
-        /// </summary>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="physicsType">Type of physics to rollback; this is often what your casts will use.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Rollback(Scene scene, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwner = false)
-        {
-            
-        }
-        /// <summary>
-        /// Rolls back all colliders.
-        /// </summary>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="physicsType">Type of physics to rollback; this is often what your casts will use.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        public void Rollback(int sceneHandle, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwner = false)
-        {
-            
-        }
-
+            }
 
         /// <summary>
-        /// Rolls back all 3d colliders hit by a test cast against bounding boxes.
+        /// Rolls back all colliders in a scene.
         /// </summary>
-        /// <param name="origin">Ray origin.</param>
-        /// <param name="normalizedDirection">Direction to cast.</param>
-        /// <param name="distance">Distance of cast.</param>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        public void Rollback(Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwner = false)
+        /// <param name = "sceneHandle">Scene handle containing colliders.</param>
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(int sceneHandle, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
         {
-            
-        }
+            }
 
         /// <summary>
-        /// Rolls back all 3d colliders hit by a test cast against bounding boxes.
+        /// Rolls back colliders hit by a test cast against bounding boxes.
         /// </summary>
-        /// <param name="origin">Ray origin.</param>
-        /// <param name="normalizedDirection">Direction to cast.</param>
-        /// <param name="distance">Distance of cast.</param>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Rollback(Scene scene, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwner = false)
+        /// <param name = "origin">Ray origin.</param>
+        /// <param name = "normalizedDirection">Direction to cast.</param>
+        /// <param name = "distance">Distance of cast.</param>
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
         {
-            
-        }
-        /// <summary>
-        /// Rolls back all 3d colliders hit by a test cast against bounding boxes.
-        /// </summary>
-        /// <param name="origin">Ray origin.</param>
-        /// <param name="normalizedDirection">Direction to cast.</param>
-        /// <param name="distance">Distance of cast.</param>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        public void Rollback(int sceneHandle, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, bool asOwner = false)
-        {
-            
-        }
+            }
 
         /// <summary>
-        /// Rolls back all 3d colliders hit by a test cast against bounding boxes.
+        /// Rolls back colliders hit by a test cast against bounding boxes, in a specific scene.
         /// </summary>
-        /// <param name="origin">Ray origin.</param>
-        /// <param name="normalizedDirection">Direction to cast.</param>
-        /// <param name="distance">Distance of cast.</param>
-        /// <param name="pt">Precise tick received from the client.</param>
-        /// <param name="asOwner">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
-        public void Rollback(Vector2 origin, Vector2 normalizedDirection, float distance, PreciseTick pt, bool asOwner = false)
+        /// <param name = "scene">Scene containing colliders.</param>
+        /// <param name = "origin">Ray origin.</param>
+        /// <param name = "normalizedDirection">Direction to cast.</param>
+        /// <param name = "distance">Distance of cast.</param>
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(Scene scene, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
         {
-            
-        }
+            }
+
+        /// <summary>
+        /// Rolls back colliders hit by a test cast against bounding boxes, in a specific scene.
+        /// </summary>
+        /// <param name = "sceneHandle">Scene handle containing colliders.</param>
+        /// <param name = "origin">Ray origin.</param>
+        /// <param name = "normalizedDirection">Direction to cast.</param>
+        /// <param name = "distance">Distance of cast.</param>
+        /// <param name = "pt">Precise tick received from the client.</param>
+        /// <param name = "physicsType">Type of physics to rollback; this is often what your casts will use.</param>
+        /// <param name = "asOwnerAndClientHost">True if IsOwner of the object the raycast is for. This can be ignored and only provides more accurate results for clientHost.</param>
+        public void Rollback(int sceneHandle, Vector3 origin, Vector3 normalizedDirection, float distance, PreciseTick pt, RollbackPhysicsType physicsType, bool asOwnerAndClientHost = false)
+        {
+            }
 
         /// <summary>
         /// Returns all ColliderRollback objects back to their original position.
         /// </summary>
         public void Return()
         {
-            
+            }
+
         }
-
-        
-    }
-
 }

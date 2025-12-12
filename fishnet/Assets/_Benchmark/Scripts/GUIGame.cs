@@ -20,6 +20,7 @@ namespace StinkySteak.FishnetBenchmark
             for (int i = 0; i < stressTest.SpawnCount; i++)
             {
                 GameObject go = Instantiate(stressTest.Prefab);
+                go.transform.position = Random.insideUnitSphere * 10;
                 _networkManager.ServerManager.Spawn(go);
             }
         }
