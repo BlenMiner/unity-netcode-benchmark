@@ -134,7 +134,7 @@ namespace Mirror
                 rb.rotation = rotation;
             }
 
-            rb.velocity = velocity;
+            rb.linearVelocity = velocity;
         }
 
         // record state at NetworkTime.time on client
@@ -161,7 +161,7 @@ namespace Mirror
             {
                 RigidbodyState last = stateHistory.Values[stateHistory.Count - 1];
                 positionDelta = rb.position - last.position;
-                velocityDelta = rb.velocity - last.velocity;
+                velocityDelta = rb.linearVelocity - last.velocity;
 
                 // debug draw the recorded state
                 Debug.DrawLine(last.position, rb.position, Color.red, lineTime);
@@ -174,7 +174,7 @@ namespace Mirror
                     predictedTime,
                     positionDelta, rb.position,
                     rb.rotation,
-                    velocityDelta, rb.velocity)
+                    velocityDelta, rb.linearVelocity)
             );
         }
 
@@ -349,7 +349,7 @@ namespace Mirror
             writer.WriteFloat(Time.deltaTime);
             writer.WriteVector3(rb.position);
             writer.WriteQuaternion(rb.rotation);
-            writer.WriteVector3(rb.velocity);
+            writer.WriteVector3(rb.linearVelocity);
         }
 
         // read the server's state, compare with client state & correct if necessary.
