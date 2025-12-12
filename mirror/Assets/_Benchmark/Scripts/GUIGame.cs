@@ -1,6 +1,8 @@
+using System;
 using Mirror;
 using StinkySteak.NetcodeBenchmark;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace StinkySteak.MirrorBenchmark
 {
