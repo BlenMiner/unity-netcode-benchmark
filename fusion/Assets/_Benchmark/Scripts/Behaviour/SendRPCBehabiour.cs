@@ -4,7 +4,24 @@ using UnityEngine;
 
 public class SendRPCBehabiour : NetworkBehaviour
 {
+    [Networked] public Vector3 SpawnPos { get; set; }
+    [Networked] public Quaternion SpawnRot { get; set; }
+
     [SerializeField] TMP_Text _text;
+
+    public override void Spawned()
+    {
+        // apply on clients
+        if (!Runner.IsServer)
+        {
+            transform.SetPositionAndRotation(SpawnPos, SpawnRot);
+        }
+        else
+        {
+            SpawnPos = transform.position;
+            SpawnRot = transform.rotation;
+        }
+    }
 
     public override void FixedUpdateNetwork()
     {

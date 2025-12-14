@@ -1,3 +1,4 @@
+using System.IO;
 using Fusion;
 using StinkySteak.NetcodeBenchmark;
 using UnityEngine;
@@ -37,13 +38,14 @@ namespace StinkySteak.FusionBenchmark
                 SceneManager = _runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
                 Scene = SceneRef.FromIndex(0),
                 SessionName = "my-session",
+                AuthValues = new Fusion.Photon.Realtime.AuthenticationValues { UserId = SystemInfo.deviceUniqueIdentifier + Path.GetDirectoryName(Directory.GetCurrentDirectory()) }
             });
         }
         protected override void StressTest(StressTestEssential stressTest)
         {
             for (int i = 0; i < stressTest.SpawnCount; i++)
             {
-                _runner.Spawn(stressTest.Prefab, position: Random.insideUnitSphere * 10);
+                _runner.Spawn(stressTest.Prefab, Random.insideUnitSphere * 10, Quaternion.identity, _runner.LocalPlayer);
             }
         }
 

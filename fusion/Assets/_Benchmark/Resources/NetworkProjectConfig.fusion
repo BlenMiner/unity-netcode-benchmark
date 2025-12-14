@@ -12,18 +12,23 @@
     "InvokeRenderInBatchMode": true,
     "NetworkIdIsObjectName": false,
     "HideNetworkObjectInactivityGuard": false,
+    "AllowClientServerModesInWebGL": false,
+    "ClientsRecordFrameAndPacketTimingTraces": false,
     "Simulation": {
         "InputDataWordCount": 0,
-        "SceneInfoWordCount": 16,
         "ReplicationFeatures": 1,
         "InputTransferMode": 0,
+        "SimulationUpdateTimeMode": 0,
         "PlayerCount": 10,
         "TickRateSelection": {
             "Client": 20,
             "ServerIndex": 0,
             "ClientSendIndex": 0,
             "ServerSendIndex": 0
-        }
+        },
+        "MaxObjectDestroysSentPerPacket": 32,
+        "EnableExperimentalPacketLossRecovery": false,
+        "EnableAdaptivePacketFragmentation": false
     },
     "Network": {
         "ConnectionTimeout": 10.0,
@@ -33,6 +38,9 @@
     "HostMigration": {
         "EnableAutoUpdate": false,
         "UpdateDelay": 10
+    },
+    "EncryptionConfig": {
+        "EnableEncryption": false
     },
     "NetworkConditions": {
         "Enabled": false,
@@ -50,7 +58,7 @@
         "AdditionalLoss": 0.005
     },
     "Heap": {
-        "PageShift": 14,
+        "PageShift": 18,
         "PageCount": 128,
         "GlobalsSize": 0
     },
