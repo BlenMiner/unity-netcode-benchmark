@@ -1,0 +1,27 @@
+using PurrNet;
+using StinkySteak.NetcodeBenchmark;
+using UnityEngine;
+
+namespace StinkySteak.MirrorBenchmark
+{
+    public class WanderMoveBehaviour : NetworkBehaviour, ITick
+    {
+        [SerializeField] private BehaviourConfig _config;
+        private WanderMoveWrapper _wrapper;
+
+        protected override void OnSpawned(bool asServer)
+        {
+            if (!asServer) return;
+
+            _config.ApplyConfig(ref _wrapper);
+            _wrapper.NetworkStart(transform);
+        }
+
+        public void OnTick(float delta)
+        {
+            if (isClient) return;
+
+            _wrapper.NetworkUpdate(transform);
+        }
+    }
+}
