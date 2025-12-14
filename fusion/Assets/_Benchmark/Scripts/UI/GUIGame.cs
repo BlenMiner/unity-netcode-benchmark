@@ -43,7 +43,7 @@ namespace StinkySteak.FusionBenchmark
         {
             for (int i = 0; i < stressTest.SpawnCount; i++)
             {
-                _runner.Spawn(stressTest.Prefab);
+                _runner.Spawn(stressTest.Prefab, position: Random.insideUnitSphere * 10);
             }
         }
 
