@@ -28,6 +28,9 @@
     "accountId": "9bed11ff-5572-41da-a3fd-cccb3ee40da4"
   }
 }]]></component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/Assets/_Benchmark/Scripts/SendRPCBehaviour.cs" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo"><![CDATA[{
   "associatedIndex": 1
@@ -99,7 +102,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1765547873973</updated>
-      <workItem from="1765547875245" duration="1892000" />
+      <workItem from="1765547875245" duration="4996000" />
     </task>
     <servers />
   </component>
