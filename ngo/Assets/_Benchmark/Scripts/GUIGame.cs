@@ -41,6 +41,7 @@ namespace StinkySteak.NGOBenchmark
             for (int i = 0; i < stressTest.SpawnCount; i++)
             {
                 GameObject go = Instantiate(stressTest.Prefab);
+                go.transform.position = Random.insideUnitSphere * 10;
                 go.GetComponent<NetworkObject>().Spawn();
             }
         }
